@@ -1,0 +1,1083 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="LineBoard">
+<meta name="theme-color" content="#ffffff">
+<link rel="apple-touch-icon" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxODAgMTgwIj48cmVjdCB3aWR0aD0iMTgwIiBoZWlnaHQ9IjE4MCIgZmlsbD0iI2ZmZiIvPjxyZWN0IHg9IjI2IiB5PSI0MCIgd2lkdGg9IjEyOCIgaGVpZ2h0PSI4NCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjMDAwIiBzdHJva2Utd2lkdGg9IjkiLz48cmVjdCB4PSI0NCIgeT0iMjIiIHdpZHRoPSI5IiBoZWlnaHQ9IjEzNiIgZmlsbD0iI2M4MWUxZSIvPjwvc3ZnPg==">
+<title>LineBoard</title>
+<style>
+  :root{
+    --ink:#000; --paper:#fff; --grey:#d8d8d8; --soft:#f2f2f2; --mid:#777; --red:#c81e1e;
+    --row:34px;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  html,body{margin:0; height:100%;}
+  body{
+    background:var(--paper); color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text",Segoe UI,sans-serif;
+    -webkit-font-smoothing:antialiased;
+    display:flex; flex-direction:column;
+    overscroll-behavior:none;
+  }
+  button{font-family:inherit; color:inherit;}
+
+  /* top bar */
+  .topbar{
+    display:flex; align-items:center; justify-content:space-between; gap:10px;
+    padding:10px 14px; border-bottom:2px solid var(--ink); flex:0 0 auto;
+    padding-top:calc(10px + env(safe-area-inset-top));
+  }
+  .brand{font-weight:800; font-size:15px; letter-spacing:.02em; white-space:nowrap;}
+  .brand span{color:var(--red);}
+  .brand small{display:block; font-weight:600; font-size:10px; color:var(--mid); letter-spacing:0;}
+  .tabs{display:flex; border:2px solid var(--ink); border-radius:6px; overflow:hidden;}
+  .tab{padding:7px 14px; font-size:12px; font-weight:700; background:var(--paper); border:none;}
+  .tab+.tab{border-left:2px solid var(--ink);}
+  .tab.active{background:var(--ink); color:var(--paper);}
+  .topacts{display:flex; gap:6px;}
+  .btn{
+    border:2px solid var(--ink); background:var(--paper); padding:7px 12px;
+    font-size:12px; font-weight:700; border-radius:6px; white-space:nowrap;
+  }
+  .btn:disabled{opacity:.35;}
+  .btn.primary{background:var(--ink); color:var(--paper);}
+  .btn.sm{padding:5px 9px; font-size:11px; border-width:1.5px;}
+  .btn.danger{border-color:var(--red); color:var(--red);}
+
+  .view{display:none; flex:1 1 auto; overflow:auto; -webkit-overflow-scrolling:touch;}
+  .view.active{display:block;}
+
+  /* ---------- SCRIPT ---------- */
+  .pastewrap{max-width:700px; margin:0 auto; padding:24px 18px;}
+  .pastewrap h2{font-size:16px; margin:0 0 4px;}
+  .pastewrap p{font-size:13px; color:var(--mid); margin:0 0 14px; line-height:1.5;}
+  textarea{
+    width:100%; height:46vh; padding:14px; border:2px solid var(--ink); border-radius:6px;
+    font-family:"Courier New",monospace; font-size:13px; line-height:1.6; resize:vertical;
+  }
+  .rowbtns{display:flex; gap:8px; margin-top:12px; flex-wrap:wrap;}
+
+  .scriptwrap{max-width:760px; margin:0 auto; padding:16px 14px 120px;}
+  .hint{
+    font-size:12px; color:var(--mid); margin:0 0 12px; line-height:1.5;
+    border-left:3px solid var(--grey); padding-left:10px;
+  }
+  .page{border:2px solid var(--ink); border-radius:4px; padding:22px 10px 22px 14px; position:relative;}
+  .scriptgrid{display:grid; grid-template-columns:26px 1fr 132px; column-gap:8px; position:relative;}
+  .ln{
+    font-family:"Courier New",monospace; font-size:10px; color:#b0b0b0;
+    text-align:right; padding-top:5px; user-select:none;
+  }
+  .sl{
+    font-family:"Courier New",monospace; font-size:13.5px; line-height:1.55;
+    padding:3px 4px; border-radius:3px; min-height:var(--row); cursor:pointer;
+  }
+  .sl.blank{min-height:16px;}
+  .sl:active{background:var(--soft);}
+  .sl.heading{font-weight:700;}
+  .sl.character{font-weight:700; padding-left:100px;}
+  .sl.dialogue{padding-left:56px; padding-right:40px;}
+  .sl.paren{padding-left:78px; color:#555;}
+  .gutter{position:relative;}
+  .brk{
+    position:absolute; width:2.5px; background:var(--ink); cursor:pointer;
+  }
+  .brk.sel{background:var(--red); width:2.5px;}
+  .brk .pin{
+    position:absolute; left:-9px; top:-27px; min-width:16px; height:17px; padding:0 5px;
+    border-radius:9px; background:var(--ink); color:var(--paper);
+    font-size:9.5px; font-weight:800; display:flex; align-items:center; justify-content:center;
+    white-space:nowrap;
+  }
+  .brk.sel .pin{background:var(--red);}
+  .brk .h{
+    position:absolute; left:-4.75px; width:12px; height:12px; border-radius:50%;
+    background:var(--paper); border:2px solid var(--ink);
+    touch-action:none; cursor:ns-resize;
+  }
+  .brk.sel .h{border-color:var(--red);}
+  .brk .h:hover{background:var(--soft);}
+  .brk .h.top{top:-6px;} .brk .h.bot{bottom:-6px;}
+  .brk .h::after{
+    content:""; position:absolute; inset:-10px; cursor:ns-resize;
+  }
+
+  /* ---------- SHOTS + BOARD ---------- */
+  .boardwrap{padding:16px 14px 120px; max-width:1100px; margin:0 auto;}
+  .split{display:flex; gap:18px; align-items:flex-start;}
+  .ptitle{font-size:10.5px; font-weight:800; letter-spacing:.08em; margin:0 0 8px 2px; color:var(--mid);}
+  .listcol{flex:0 0 300px;}
+  .listbox{border:2px solid var(--ink); border-radius:6px; overflow:hidden;}
+  table{border-collapse:collapse; width:100%; font-size:12px;}
+  th{text-align:left; padding:7px 8px; border-bottom:2px solid var(--ink); font-size:10px; letter-spacing:.05em;}
+  td{padding:5px 8px; border-bottom:1px solid var(--grey); vertical-align:middle;}
+  tr:last-child td{border-bottom:none;}
+  tr.sel td{background:var(--soft);}
+  tr.scenehead td{
+    background:var(--ink); color:var(--paper); font-weight:800; font-size:10px;
+    letter-spacing:.06em; padding:5px 8px;
+  }
+  .shotno{font-weight:800; font-size:11.5px; white-space:nowrap;}
+  td input.desc{
+    width:100%; border:none; background:transparent; font-size:12px; padding:3px 2px;
+    border-bottom:1px dashed transparent; font-family:inherit;
+  }
+  td input.desc:focus{outline:none; border-bottom-color:var(--ink);}
+  td select.type{
+    border:1px solid var(--grey); border-radius:4px; background:var(--paper);
+    font-size:11px; padding:3px 2px; font-family:inherit; max-width:92px;
+  }
+  .boardcol{flex:1 1 auto; min-width:0;}
+  .grid{display:grid; grid-template-columns:repeat(2,1fr); gap:14px;}
+  .scenebar{
+    grid-column:1/-1; font-size:10px; font-weight:800; letter-spacing:.07em;
+    border-bottom:2px solid var(--ink); padding-bottom:4px; margin-top:4px;
+  }
+  .box{
+    border:2px solid var(--ink); border-radius:6px; position:relative; overflow:hidden;
+    background:var(--paper);
+  }
+  .box.sel{outline:2px solid var(--red); outline-offset:2px;}
+  .box .bh{
+    display:flex; justify-content:space-between; gap:6px; align-items:center;
+    padding:5px 7px; border-bottom:1px solid var(--grey); font-size:10.5px; font-weight:700;
+    position:relative; z-index:2; background:var(--paper);
+  }
+  .box .bh em{font-style:normal; font-weight:400; color:var(--mid); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+  .frame{position:relative; width:100%; background:var(--paper);}
+  .frame img{position:absolute; inset:0; width:100%; height:100%; object-fit:contain;}
+  .frame .ph{
+    position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
+    color:#c8c8c8; font-size:11px; font-weight:700; letter-spacing:.04em;
+  }
+  .empty{
+    border:2px dashed var(--grey); border-radius:6px; padding:34px 18px; text-align:center;
+    color:var(--mid); font-size:13px; line-height:1.6;
+  }
+
+  /* ---------- EDITOR OVERLAY ---------- */
+  .ov{
+    position:fixed; inset:0; background:var(--paper); z-index:50;
+    display:none; flex-direction:column;
+    padding-top:env(safe-area-inset-top); padding-bottom:env(safe-area-inset-bottom);
+  }
+  .ov.open{display:flex;}
+  .ovbar{
+    display:flex; align-items:center; justify-content:space-between; gap:8px;
+    padding:10px 14px; border-bottom:2px solid var(--ink); flex-wrap:wrap;
+  }
+  .ovtitle{font-weight:800; font-size:13px;}
+  .ovtitle em{font-style:normal; font-weight:400; color:var(--mid); font-size:12px;}
+  .tools{display:flex; gap:6px; align-items:center; flex-wrap:wrap;}
+  .tool{
+    border:2px solid var(--ink); background:var(--paper); border-radius:6px;
+    padding:6px 10px; font-size:11.5px; font-weight:700;
+  }
+  .tool.on{background:var(--ink); color:var(--paper);}
+  .ovbody{flex:1 1 auto; display:flex; align-items:center; justify-content:center; padding:14px; overflow:auto;}
+  .stage{position:relative; border:2px solid var(--ink); border-radius:6px; overflow:hidden; background:var(--paper);}
+  .stage img.bg{position:absolute; inset:0; width:100%; height:100%; object-fit:contain;}
+  .stage canvas{position:absolute; inset:0; width:100%; height:100%; touch-action:none;}
+
+  /* ---------- MODAL ---------- */
+  .mod{
+    position:fixed; inset:0; background:rgba(0,0,0,.45); z-index:60;
+    display:none; align-items:center; justify-content:center; padding:18px;
+  }
+  .mod.open{display:flex;}
+  .card{
+    background:var(--paper); border:2px solid var(--ink); border-radius:10px;
+    padding:18px; width:100%; max-width:420px; max-height:88vh; overflow:auto;
+  }
+  .card h3{margin:0 0 12px; font-size:15px;}
+  .fld{margin-bottom:10px;}
+  .fld label{display:block; font-size:10.5px; font-weight:800; letter-spacing:.05em; color:var(--mid); margin-bottom:3px;}
+  .fld input,.fld select{
+    width:100%; border:2px solid var(--ink); border-radius:5px; padding:8px;
+    font-size:13px; font-family:inherit; background:var(--paper);
+  }
+  .fld .ro{background:var(--soft); border-style:dashed;}
+  .modacts{display:flex; gap:8px; justify-content:flex-end; margin-top:14px;}
+
+  .toast{
+    position:fixed; left:50%; bottom:24px; transform:translateX(-50%);
+    background:var(--ink); color:var(--paper); padding:10px 16px; border-radius:6px;
+    font-size:12.5px; font-weight:600; z-index:80; opacity:0; pointer-events:none;
+    transition:opacity .2s; max-width:88vw; text-align:center;
+  }
+  .toast.show{opacity:1;}
+
+  @media (max-width:820px){
+    .split{flex-direction:column;}
+    .listcol{flex:1 1 auto; width:100%;}
+    .boardcol{width:100%;}
+    .scriptgrid{grid-template-columns:22px 1fr 108px;}
+  }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="brand">LineBoard<span>.</span><small id="brandsub">no project</small></div>
+  <div class="tabs">
+    <button class="tab active" data-view="vScript">Script</button>
+    <button class="tab" data-view="vBoard">Shots + Board</button>
+  </div>
+  <div class="topacts">
+    <button class="btn sm" id="bInfo">Info</button>
+    <button class="btn sm" id="bLoad">Open</button>
+    <button class="btn sm primary" id="bSave">Save</button>
+    <button class="btn sm danger" id="bClose">Close</button>
+  </div>
+</div>
+
+<!-- SCRIPT VIEW -->
+<div class="view active" id="vScript">
+  <div class="pastewrap" id="pasteBlock">
+    <h2>Paste the script</h2>
+    <p>Fountain format is preferred (scene headings are detected reliably). Plain text works too, with best-guess heading detection.</p>
+    <textarea id="scriptIn" placeholder="INT. FOREST CABIN - NIGHT
+
+Rain hits the tin roof. Maya pushes the door shut behind her.
+
+MAYA
+I know you're here."></textarea>
+    <div class="rowbtns">
+      <button class="btn primary" id="bParse">Load script</button>
+      <button class="btn" id="bUpload">Upload file</button>
+      <button class="btn" id="bDemo">Use sample</button>
+    </div>
+  </div>
+
+  <div class="scriptwrap" id="scriptBlock" style="display:none;">
+    <div class="rowbtns" style="margin-bottom:12px;">
+      <button class="btn sm" id="bUndo">Undo</button>
+      <button class="btn sm danger" id="bDel" disabled>Delete shot</button>
+      <button class="btn sm" id="bReplace">Replace script</button>
+    </div>
+    <div class="page"><div class="scriptgrid" id="grid"></div></div>
+  </div>
+</div>
+
+<!-- BOARD VIEW -->
+<div class="view" id="vBoard">
+  <div class="boardwrap">
+    <div id="noShots" class="empty">No shots yet.<br>Go to the Script tab and tap a line to make your first shot.</div>
+    <div class="split" id="splitWrap" style="display:none;">
+      <div class="listcol">
+        <div class="ptitle">SHOT LIST</div>
+        <div class="listbox"><table id="tbl"></table></div>
+      </div>
+      <div class="boardcol">
+        <div class="ptitle">STORYBOARD</div>
+        <div class="grid" id="board"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- EDITOR -->
+<div class="ov" id="ov">
+  <div class="ovbar">
+    <div class="ovtitle" id="ovTitle">1.1 <em>desc</em></div>
+    <div class="tools">
+      <button class="tool on" id="tPen">Pen</button>
+      <button class="tool" id="tErase">Eraser</button>
+      <button class="tool" id="tUndo">Undo</button>
+      <button class="tool" id="tRedo">Redo</button>
+      <button class="tool" id="tImg">Image</button>
+      <button class="tool" id="tCam">Camera</button>
+      <button class="tool" id="tClrImg">Clear image</button>
+      <button class="tool" id="tClrDraw">Clear drawing</button>
+      <button class="tool" id="tClose" style="background:#000;color:#fff;">Done</button>
+    </div>
+  </div>
+  <div class="ovbody"><div class="stage" id="stage">
+    <img class="bg" id="stageBg" alt="">
+    <canvas id="cv"></canvas>
+  </div></div>
+</div>
+
+<!-- INFO MODAL -->
+<div class="mod" id="mod">
+  <div class="card">
+    <h3>Project info</h3>
+    <div class="fld"><label>TITLE</label><input id="mTitle"></div>
+    <div class="fld"><label>PRODUCTION</label><input id="mProd"></div>
+    <div class="fld"><label>DIRECTOR</label><input id="mDir"></div>
+    <div class="fld"><label>DIRECTOR OF PHOTOGRAPHY</label><input id="mDop"></div>
+    <div class="fld"><label>FRAME ASPECT</label>
+      <select id="mAspect">
+        <option value="1.778">16:9</option>
+        <option value="2.39">2.39:1 (scope)</option>
+        <option value="1.333">4:3</option>
+        <option value="1.85">1.85:1</option>
+        <option value="1">1:1</option>
+      </select>
+    </div>
+    <div class="fld"><label>DRAFT (AUTO)</label><input id="mDraft" class="ro" readonly></div>
+    <div class="modacts">
+      <button class="btn" id="mCancel">Cancel</button>
+      <button class="btn primary" id="mOk">Save info</button>
+    </div>
+  </div>
+</div>
+
+<input type="file" id="fileImg" accept="image/*" style="display:none;">
+<input type="file" id="fileCam" accept="image/*" capture="environment" style="display:none;">
+<input type="file" id="fileOpen" accept=".zip,.json,application/zip,application/json" style="display:none;">
+<input type="file" id="fileScript" accept=".fountain,.txt,text/plain,text/*" style="display:none;">
+<div class="toast" id="toast"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script>
+/* ============================================================
+   LineBoard
+   ============================================================ */
+
+const SHOT_TYPES = ["Wide","Very Wide","Medium Wide","Medium","Medium Close","Close-Up","Extreme Close-Up","Insert","Over-Shoulder","Two Shot","POV","High Angle","Low Angle","Top Shot","Tracking","Pan","Tilt","Handheld","Establishing"];
+const PER_PAGE = 6;          // storyboard boxes per PDF page
+const DRAW_W  = 1400;        // drawing canvas pixel width
+
+let P = null;                // project
+let selShot = null;
+let undoStack = [];
+
+/* ---------- helpers ---------- */
+const $ = id => document.getElementById(id);
+const uid = () => 's' + Math.random().toString(36).slice(2,9) + Date.now().toString(36).slice(-3);
+function toast(m){ const t=$('toast'); t.textContent=m; t.classList.add('show'); clearTimeout(t._t); t._t=setTimeout(()=>t.classList.remove('show'),2200); }
+function esc(s){ return (s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+
+/* ---------- script parsing ---------- */
+const HEAD_RE = /^(INT\.?|EXT\.?|EST\.?|INT\.?\/EXT\.?|I\/E\.?)[\s.\-]/i;
+
+function classify(raw, prev, next){
+  const t = raw.trim();
+  if(!t) return 'blank';
+  if(t.startsWith('.') && !t.startsWith('..')) return 'heading';       // fountain forced heading
+  if(HEAD_RE.test(t)) return 'heading';
+  if(/^\(.*\)$/.test(t)) return 'paren';
+  if(t.startsWith('@')) return 'character';
+  const isUpper = t === t.toUpperCase() && /[A-Z]/.test(t);
+  if(isUpper && t.length < 45 && next && next.trim() && !HEAD_RE.test(t)) return 'character';
+  if(prev && (prev.type==='character' || prev.type==='paren' || prev.type==='dialogue') && t) return 'dialogue';
+  return 'action';
+}
+
+function parseScript(text){
+  const raw = text.replace(/\r\n?/g,'\n').split('\n');
+  const lines = [];
+  for(let i=0;i<raw.length;i++){
+    const prev = lines.length ? lines[lines.length-1] : null;
+    const type = classify(raw[i], prev, raw[i+1]);
+    let disp = raw[i].trim();
+    if(type==='heading' && disp.startsWith('.')) disp = disp.slice(1);
+    if(type==='character' && disp.startsWith('@')) disp = disp.slice(1);
+    lines.push({ text: disp, type });
+  }
+  // trim trailing blanks
+  while(lines.length && lines[lines.length-1].type==='blank') lines.pop();
+  return lines;
+}
+
+/* scene index per line: -1 before first heading (treated as scene 1) */
+function sceneOfLine(i){
+  let s = 0;
+  for(let k=0;k<=i && k<P.lines.length;k++) if(P.lines[k].type==='heading') s++;
+  return Math.max(1, s);
+}
+function sceneHeadingText(sceneNo){
+  let s=0;
+  for(const l of P.lines){ if(l.type==='heading'){ s++; if(s===sceneNo) return l.text; } }
+  return sceneNo===1 ? 'SCENE 1' : ('SCENE '+sceneNo);
+}
+
+/* ---------- numbering (derived, never editable) ---------- */
+function numbered(){
+  const list = P.shots.slice().sort((a,b)=> a.start-b.start || a.end-b.end);
+  const cnt = {};
+  return list.map(s=>{
+    const sc = sceneOfLine(s.start);
+    cnt[sc] = (cnt[sc]||0)+1;
+    return Object.assign({}, s, { scene: sc, no: sc+'.'+cnt[sc] });
+  });
+}
+function numOf(id){ const n = numbered().find(s=>s.id===id); return n ? n.no : '—'; }
+
+/* ---------- project ---------- */
+function newProject(lines){
+  P = {
+    app:'LineBoard', v:1,
+    meta:{ title:'', production:'', director:'', dop:'', draft:0 },
+    aspect: 1.778,
+    lines: lines,
+    shots: []
+  };
+  undoStack = []; selShot = null;
+}
+function snapshot(){
+  undoStack.push(JSON.stringify(P.shots));
+  if(undoStack.length>40) undoStack.shift();
+  $('bUndo').disabled = false;
+}
+function undo(){
+  if(!undoStack.length){ toast('Nothing to undo'); return; }
+  P.shots = JSON.parse(undoStack.pop());
+  if(selShot && !P.shots.find(s=>s.id===selShot)) selShot = null;
+  renderAll(); toast('Undone');
+}
+
+/* ---------- shot creation / editing ---------- */
+function firstWords(str, n=5){
+  const w = (str||'').trim().split(/\s+/).filter(Boolean);
+  if(!w.length) return '';
+  return w.slice(0,n).join(' ') + (w.length>n ? '…' : '');
+}
+function descFromRange(a,b){
+  for(let i=a;i<=b;i++){ if(P.lines[i] && P.lines[i].type!=='blank' && P.lines[i].text) return firstWords(P.lines[i].text); }
+  return '';
+}
+function addShot(lineIdx){
+  if(P.lines[lineIdx].type==='blank') return;
+  snapshot();
+  const s = { id:uid(), start:lineIdx, end:lineIdx, desc:descFromRange(lineIdx,lineIdx), type:'Medium', bg:null, draw:null };
+  P.shots.push(s); selShot = s.id;
+  renderAll();
+}
+function delShot(){
+  if(!selShot) return;
+  snapshot();
+  P.shots = P.shots.filter(s=>s.id!==selShot);
+  selShot = null; renderAll(); toast('Shot deleted');
+}
+
+/* ---------- render: script ---------- */
+let rowEls = [];
+function renderScript(){
+  const g = $('grid'); g.innerHTML=''; rowEls=[];
+  P.lines.forEach((l,i)=>{
+    const n = document.createElement('div'); n.className='ln'; n.textContent = l.type==='blank' ? '' : (i+1);
+    const s = document.createElement('div');
+    s.className = 'sl ' + l.type;
+    s.textContent = l.text || '\u00A0';
+    let lpTimer=null, lpFired=false, sx=0, sy=0;
+    const cancelLP = ()=>{ clearTimeout(lpTimer); lpTimer=null; };
+    s.addEventListener('pointerdown', e=>{
+      lpFired = false; sx=e.clientX; sy=e.clientY;
+      lpTimer = setTimeout(()=>{ lpFired = true; addShot(i); toast('New overlapping shot added'); }, 480);
+    });
+    s.addEventListener('pointermove', e=>{
+      if(lpTimer && (Math.abs(e.clientX-sx)>8 || Math.abs(e.clientY-sy)>8)) cancelLP();
+    });
+    s.addEventListener('pointerup', cancelLP);
+    s.addEventListener('pointercancel', cancelLP);
+    s.addEventListener('pointerleave', cancelLP);
+    s.addEventListener('click', ()=>{
+      if(lpFired){ lpFired=false; return; }
+      const hit = P.shots.filter(sh=> i>=sh.start && i<=sh.end);
+      if(hit.length){ selShot = hit[hit.length-1].id; renderAll(); }
+      else addShot(i);
+    });
+    const gt = document.createElement('div'); gt.className='gutter';
+    g.appendChild(n); g.appendChild(s); g.appendChild(gt);
+    rowEls.push(s);
+  });
+  requestAnimationFrame(drawBrackets);
+}
+
+function laneAssign(list){
+  const lanes = [];
+  const out = new Map();
+  list.forEach(s=>{
+    let li = lanes.findIndex(L => L.every(o => s.start > o.end || s.end < o.start));
+    if(li === -1){ lanes.push([]); li = lanes.length-1; }
+    lanes[li].push(s); out.set(s.id, li);
+  });
+  return out;
+}
+
+function drawBrackets(){
+  document.querySelectorAll('.gutter').forEach(g=> g.innerHTML='');
+  if(!rowEls.length) return;
+  const list = numbered();
+  const lanes = laneAssign(list);
+  const gutters = document.querySelectorAll('.gutter');
+  const LANE_W = 30;
+  list.forEach(s=>{
+    const a = rowEls[s.start], b = rowEls[s.end];
+    if(!a || !b) return;
+    const host = gutters[s.start];
+    if(!host) return;
+    const top = a.offsetTop, bottom = b.offsetTop + b.offsetHeight;
+    const hostTop = host.offsetTop;
+    const el = document.createElement('div');
+    el.className = 'brk' + (s.id===selShot ? ' sel' : '');
+    el.style.left = (6 + lanes.get(s.id)*LANE_W) + 'px';
+    el.style.top  = (top - hostTop + 3) + 'px';
+    el.style.height = Math.max(14, bottom - top - 6) + 'px';
+    el.innerHTML =
+      '<div class="pin">'+s.no+'</div>' +
+      '<div class="h top"></div><div class="h bot"></div>';
+    el.addEventListener('click', e=>{ e.stopPropagation(); selShot = s.id; renderAll(); });
+    el.querySelector('.h.top').addEventListener('pointerdown', e=> startDrag(e, s.id, 'start'));
+    el.querySelector('.h.bot').addEventListener('pointerdown', e=> startDrag(e, s.id, 'end'));
+    host.appendChild(el);
+  });
+}
+
+let drag = null;
+function startDrag(e, id, edge){
+  e.preventDefault(); e.stopPropagation();
+  selShot = id; snapshot();
+  drag = { id, edge };
+  window.addEventListener('pointermove', onDrag);
+  window.addEventListener('pointerup', endDrag, {once:true});
+  renderAll();
+}
+function lineAtY(clientY){
+  let best = 0, bd = Infinity;
+  for(let i=0;i<rowEls.length;i++){
+    const r = rowEls[i].getBoundingClientRect();
+    const c = r.top + r.height/2;
+    const d = Math.abs(c - clientY);
+    if(d < bd){ bd = d; best = i; }
+  }
+  return best;
+}
+function onDrag(e){
+  if(!drag) return;
+  e.preventDefault();
+  const s = P.shots.find(x=>x.id===drag.id); if(!s) return;
+  const i = lineAtY(e.clientY);
+  if(drag.edge==='start') s.start = Math.min(i, s.end);
+  else s.end = Math.max(i, s.start);
+  drawBrackets();
+}
+function endDrag(){
+  drag = null;
+  window.removeEventListener('pointermove', onDrag);
+  renderAll();
+}
+
+/* ---------- render: shot list + board ---------- */
+function frameH(w){ return Math.round(w / P.aspect); }
+
+function renderBoard(){
+  const list = numbered();
+  $('noShots').style.display = list.length ? 'none' : 'block';
+  $('splitWrap').style.display = list.length ? 'flex' : 'none';
+  if(!list.length) return;
+
+  // table
+  let html = '<tr><th>Shot</th><th>Description / Comment</th><th>Type</th></tr>';
+  let lastScene = null;
+  list.forEach(s=>{
+    if(s.scene !== lastScene){
+      lastScene = s.scene;
+      html += '<tr class="scenehead"><td colspan="3">SCENE '+s.scene+' — '+esc(sheadShort(s.scene))+'</td></tr>';
+    }
+    html += '<tr data-id="'+s.id+'" class="'+(s.id===selShot?'sel':'')+'">'+
+      '<td><span class="shotno">'+s.no+'</span></td>'+
+      '<td><input class="desc" data-id="'+s.id+'" value="'+esc(s.desc)+'" placeholder="describe the shot"></td>'+
+      '<td><select class="type" data-id="'+s.id+'">'+
+        SHOT_TYPES.map(t=>'<option'+(t===s.type?' selected':'')+'>'+t+'</option>').join('')+
+      '</select></td></tr>';
+  });
+  $('tbl').innerHTML = html;
+  $('tbl').querySelectorAll('input.desc').forEach(inp=>{
+    inp.addEventListener('input', e=>{
+      const s = P.shots.find(x=>x.id===e.target.dataset.id); if(s){ s.desc = e.target.value; syncBoxLabels(); }
+    });
+    inp.addEventListener('focus', e=>{ selShot = e.target.dataset.id; markSel(); });
+  });
+  $('tbl').querySelectorAll('select.type').forEach(sel=>{
+    sel.addEventListener('change', e=>{
+      const s = P.shots.find(x=>x.id===e.target.dataset.id); if(s) s.type = e.target.value;
+    });
+  });
+  $('tbl').querySelectorAll('tr[data-id]').forEach(tr=>{
+    tr.addEventListener('click', e=>{ if(e.target.tagName==='INPUT'||e.target.tagName==='SELECT') return; selShot = tr.dataset.id; markSel(); });
+  });
+
+  // board
+  const bw = $('board').clientWidth || 600;
+  const colW = (bw - 14) / 2;
+  let bhtml = ''; lastScene = null;
+  list.forEach(s=>{
+    if(s.scene !== lastScene){
+      lastScene = s.scene;
+      bhtml += '<div class="scenebar">SCENE '+s.scene+' — '+esc(sheadShort(s.scene))+'</div>';
+    }
+    bhtml += '<div class="box'+(s.id===selShot?' sel':'')+'" data-id="'+s.id+'">'+
+      '<div class="bh"><span>'+s.no+'</span><em data-lbl="'+s.id+'">'+esc(s.desc)+'</em></div>'+
+      '<div class="frame" style="height:'+frameH(colW-4)+'px">'+
+        (s.bg ? '<img src="'+s.bg+'" alt="">' : '') +
+        (s.draw ? '<img src="'+s.draw+'" alt="">' : '') +
+        ((!s.bg && !s.draw) ? '<div class="ph">tap to draw</div>' : '') +
+      '</div></div>';
+  });
+  $('board').innerHTML = bhtml;
+  $('board').querySelectorAll('.box').forEach(b=>{
+    b.addEventListener('click', ()=> openEditor(b.dataset.id));
+  });
+}
+function sheadShort(n){ const t = sceneHeadingText(n); return t.length>40 ? t.slice(0,40)+'…' : t; }
+function syncBoxLabels(){
+  P.shots.forEach(s=>{ const e = document.querySelector('[data-lbl="'+s.id+'"]'); if(e) e.textContent = s.desc; });
+}
+function markSel(){
+  document.querySelectorAll('#tbl tr[data-id]').forEach(tr=> tr.classList.toggle('sel', tr.dataset.id===selShot));
+  document.querySelectorAll('.box').forEach(b=> b.classList.toggle('sel', b.dataset.id===selShot));
+  $('bDel').disabled = !selShot;
+  drawBrackets();
+}
+
+function renderAll(){
+  if(!P) return;
+  $('brandsub').textContent = (P.meta.title||'Untitled') + ' · draft ' + P.meta.draft;
+  renderScript(); renderBoard(); markSel();
+  $('bDel').disabled = !selShot;
+  $('bUndo').disabled = !undoStack.length;
+}
+
+/* ---------- drawing editor ---------- */
+let cv, ctx, editId=null, tool='pen', drawing=false;
+let dUndo=[], dRedo=[];
+
+function openEditor(id){
+  const s = P.shots.find(x=>x.id===id); if(!s) return;
+  editId = id; selShot = id;
+  const n = numOf(id);
+  $('ovTitle').innerHTML = n + ' <em>' + esc(s.desc||'') + '</em>';
+
+  const W = DRAW_W, H = Math.round(W / P.aspect);
+  cv = $('cv'); cv.width = W; cv.height = H;
+  ctx = cv.getContext('2d');
+  ctx.lineCap='round'; ctx.lineJoin='round';
+
+  // stage size on screen
+  const maxW = Math.min(window.innerWidth - 40, 1000);
+  const maxH = window.innerHeight - 150;
+  let sw = maxW, sh = sw / P.aspect;
+  if(sh > maxH){ sh = maxH; sw = sh * P.aspect; }
+  $('stage').style.width = sw+'px'; $('stage').style.height = sh+'px';
+
+  const bg = $('stageBg');
+  if(s.bg){ bg.src = s.bg; bg.style.display='block'; } else { bg.removeAttribute('src'); bg.style.display='none'; }
+
+  ctx.clearRect(0,0,W,H);
+  if(s.draw){
+    const im = new Image();
+    im.onload = ()=>{ ctx.drawImage(im,0,0,W,H); dUndo=[cv.toDataURL()]; };
+    im.src = s.draw;
+  } else { dUndo=[]; }
+  dRedo=[];
+  setTool('pen');
+  $('ov').classList.add('open');
+}
+
+function setTool(t){
+  tool = t;
+  $('tPen').classList.toggle('on', t==='pen');
+  $('tErase').classList.toggle('on', t==='erase');
+}
+function cvPos(e){
+  const r = cv.getBoundingClientRect();
+  return { x:(e.clientX-r.left)*(cv.width/r.width), y:(e.clientY-r.top)*(cv.height/r.height) };
+}
+function strokeStart(e){
+  e.preventDefault();
+  dUndo.push(cv.toDataURL()); if(dUndo.length>25) dUndo.shift();
+  dRedo=[];
+  drawing=true;
+  const p = cvPos(e);
+  ctx.globalCompositeOperation = tool==='erase' ? 'destination-out' : 'source-over';
+  ctx.strokeStyle = '#000'; ctx.lineWidth = tool==='erase' ? 40 : 4;
+  ctx.beginPath(); ctx.moveTo(p.x,p.y); ctx.lineTo(p.x+0.01,p.y); ctx.stroke();
+}
+function strokeMove(e){
+  if(!drawing) return;
+  e.preventDefault();
+  const p = cvPos(e);
+  ctx.lineTo(p.x,p.y); ctx.stroke();
+}
+function strokeEnd(){
+  if(!drawing) return;
+  drawing=false; ctx.closePath();
+  commitDraw();
+}
+function commitDraw(){
+  const s = P.shots.find(x=>x.id===editId); if(!s) return;
+  s.draw = isBlank(cv) ? null : cv.toDataURL('image/png');
+}
+function isBlank(c){
+  const d = c.getContext('2d').getImageData(0,0,c.width,c.height).data;
+  for(let i=3;i<d.length;i+=4) if(d[i]!==0) return false;
+  return true;
+}
+function restore(url){
+  ctx.clearRect(0,0,cv.width,cv.height);
+  if(!url){ commitDraw(); return; }
+  const im = new Image();
+  im.onload = ()=>{ ctx.drawImage(im,0,0,cv.width,cv.height); commitDraw(); };
+  im.src = url;
+}
+
+/* image handling */
+function loadImageInto(file){
+  if(!file) return;
+  const r = new FileReader();
+  r.onload = ()=>{
+    const im = new Image();
+    im.onload = ()=>{
+      // downscale to frame width to keep files sane
+      const W = DRAW_W, H = Math.round(W/P.aspect);
+      const c = document.createElement('canvas'); c.width=W; c.height=H;
+      const cx = c.getContext('2d');
+      cx.fillStyle='#fff'; cx.fillRect(0,0,W,H);
+      const sc = Math.min(W/im.width, H/im.height);
+      const dw = im.width*sc, dh = im.height*sc;
+      cx.drawImage(im,(W-dw)/2,(H-dh)/2,dw,dh);
+      const url = c.toDataURL('image/jpeg',0.82);
+      const s = P.shots.find(x=>x.id===editId);
+      if(s){ s.bg = url; $('stageBg').src = url; $('stageBg').style.display='block'; }
+    };
+    im.src = r.result;
+  };
+  r.readAsDataURL(file);
+}
+
+/* ---------- flatten (PDF only) ---------- */
+function flatten(s){
+  const W = 900, H = Math.round(W/P.aspect);
+  const c = document.createElement('canvas'); c.width=W; c.height=H;
+  const x = c.getContext('2d');
+  x.fillStyle='#fff'; x.fillRect(0,0,W,H);
+  const load = src => new Promise(r=>{
+    if(!src) return r(null);
+    const im = new Image();
+    im.onload = ()=>r(im); im.onerror = ()=>r(null);
+    im.src = src;
+  });
+  // bg first, drawing on top — flattened for print only
+  return Promise.all([load(s.bg), load(s.draw)]).then(([bg,dr])=>{
+    if(bg) x.drawImage(bg,0,0,W,H);
+    if(dr) x.drawImage(dr,0,0,W,H);
+    return c.toDataURL('image/jpeg',0.85);
+  });
+}
+
+/* ---------- PDF ---------- */
+async function buildPDF(){
+  if(!window.jspdf) throw new Error('PDF library not loaded (needs internet on first load)');
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ unit:'mm', format:'a4', orientation:'portrait' });
+  const PW = 210, PH = 297, M = 12;
+  const list = numbered();
+
+  // group: scene -> chunks of PER_PAGE
+  const byScene = {};
+  list.forEach(s=>{ (byScene[s.scene] = byScene[s.scene] || []).push(s); });
+  const scenes = Object.keys(byScene).map(Number).sort((a,b)=>a-b);
+
+  let first = true;
+  for(const sc of scenes){
+    const shots = byScene[sc];
+    for(let c=0;c<shots.length;c+=PER_PAGE){
+      const chunk = shots.slice(c, c+PER_PAGE);
+      if(!first) doc.addPage(); first = false;
+
+      // header
+      doc.setFont('helvetica','bold'); doc.setFontSize(11);
+      doc.text((P.meta.title||'Untitled'), M, M+2);
+      doc.setFont('helvetica','normal'); doc.setFontSize(7.5);
+      const hdr = [P.meta.production, P.meta.director?('Dir: '+P.meta.director):'', P.meta.dop?('DOP: '+P.meta.dop):'', 'Draft '+P.meta.draft].filter(Boolean).join('   ·   ');
+      doc.text(hdr, M, M+6.5);
+      doc.setDrawColor(0); doc.setLineWidth(0.5); doc.line(M, M+8.5, PW-M, M+8.5);
+
+      doc.setFont('helvetica','bold'); doc.setFontSize(9);
+      doc.text('SCENE '+sc+' — '+sceneHeadingText(sc).slice(0,60), M, M+14);
+
+      // shot list block
+      let y = M+19;
+      doc.setFontSize(7); doc.setFont('helvetica','bold');
+      doc.text('SHOT', M+1, y); doc.text('DESCRIPTION / COMMENT', M+16, y); doc.text('TYPE', PW-M-26, y);
+      y += 1.5; doc.setLineWidth(0.3); doc.line(M, y, PW-M, y); y += 4;
+      doc.setFont('helvetica','normal'); doc.setFontSize(8);
+      chunk.forEach(s=>{
+        doc.setFont('helvetica','bold'); doc.text(s.no, M+1, y);
+        doc.setFont('helvetica','normal');
+        const d = doc.splitTextToSize(s.desc||'', PW-M-M-46)[0] || '';
+        doc.text(d, M+16, y);
+        doc.text(s.type||'', PW-M-26, y);
+        y += 5;
+      });
+      y += 2; doc.setLineWidth(0.5); doc.line(M, y, PW-M, y); y += 6;
+
+      // board grid 2 x 3
+      const gw = (PW - M*2 - 6) / 2;
+      const ih = gw / P.aspect;
+      const cellH = ih + 7;
+      for(let i=0;i<chunk.length;i++){
+        const s = chunk[i];
+        const col = i % 2, row = Math.floor(i/2);
+        const x = M + col*(gw+6);
+        const yy = y + row*(cellH+4);
+        if(yy + cellH > PH - M) break;
+        doc.setFontSize(7.5); doc.setFont('helvetica','bold');
+        doc.text(s.no, x+1, yy+3.5);
+        doc.setFont('helvetica','normal');
+        const lbl = doc.splitTextToSize(s.desc||'', gw-14)[0] || '';
+        doc.text(lbl, x+11, yy+3.5);
+        const img = await flatten(s);
+        doc.addImage(img, 'JPEG', x, yy+5, gw, ih);
+        doc.setLineWidth(0.4); doc.rect(x, yy+5, gw, ih);
+      }
+    }
+  }
+  return doc.output('arraybuffer');
+}
+
+/* ---------- ZIP (store, no compression) ---------- */
+const CRC_T = (()=>{ const t=[]; for(let n=0;n<256;n++){ let c=n; for(let k=0;k<8;k++) c = c&1 ? 0xEDB88320 ^ (c>>>1) : c>>>1; t[n]=c>>>0; } return t; })();
+function crc32(u8){ let c = 0xFFFFFFFF; for(let i=0;i<u8.length;i++) c = CRC_T[(c ^ u8[i]) & 0xFF] ^ (c>>>8); return (c ^ 0xFFFFFFFF)>>>0; }
+function zip(files){
+  const enc = new TextEncoder(); const parts=[]; const central=[]; let off=0;
+  files.forEach(f=>{
+    const name = enc.encode(f.name), data = f.data, crc = crc32(data);
+    const lh = new Uint8Array(30 + name.length), v = new DataView(lh.buffer);
+    v.setUint32(0,0x04034b50,true); v.setUint16(4,20,true); v.setUint16(6,0,true); v.setUint16(8,0,true);
+    v.setUint16(10,0,true); v.setUint16(12,0,true); v.setUint32(14,crc,true);
+    v.setUint32(18,data.length,true); v.setUint32(22,data.length,true);
+    v.setUint16(26,name.length,true); v.setUint16(28,0,true);
+    lh.set(name,30);
+    parts.push(lh, data);
+    const ch = new Uint8Array(46 + name.length), cv = new DataView(ch.buffer);
+    cv.setUint32(0,0x02014b50,true); cv.setUint16(4,20,true); cv.setUint16(6,20,true);
+    cv.setUint32(16,crc,true); cv.setUint32(20,data.length,true); cv.setUint32(24,data.length,true);
+    cv.setUint16(28,name.length,true); cv.setUint32(42,off,true);
+    ch.set(name,46);
+    central.push(ch);
+    off += lh.length + data.length;
+  });
+  const cs = central.reduce((a,b)=>a+b.length,0);
+  const end = new Uint8Array(22), ev = new DataView(end.buffer);
+  ev.setUint32(0,0x06054b50,true); ev.setUint16(8,files.length,true); ev.setUint16(10,files.length,true);
+  ev.setUint32(12,cs,true); ev.setUint32(16,off,true);
+  return new Blob([...parts, ...central, end], {type:'application/zip'});
+}
+async function unzipFindJSON(buf){
+  const u8 = new Uint8Array(buf), dv = new DataView(buf);
+  for(let i=0;i<u8.length-4;i++){
+    if(dv.getUint32(i,true)===0x04034b50){
+      const method = dv.getUint16(i+8,true);
+      const size = dv.getUint32(i+18,true);
+      const nl = dv.getUint16(i+26,true), el = dv.getUint16(i+28,true);
+      const name = new TextDecoder().decode(u8.slice(i+30, i+30+nl));
+      const start = i+30+nl+el;
+      if(name.endsWith('.json')){
+        if(method!==0) throw new Error('Compressed zip not supported — open the .json directly');
+        return new TextDecoder().decode(u8.slice(start, start+size));
+      }
+    }
+  }
+  throw new Error('No project.json inside that zip');
+}
+
+/* ---------- save / open ---------- */
+function slug(s){ return (s||'untitled').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'').slice(0,40) || 'untitled'; }
+function dl(blob, name){
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob); a.download = name;
+  document.body.appendChild(a); a.click();
+  setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); }, 1500);
+}
+async function saveProject(){
+  if(!P){ toast('Nothing to save'); return; }
+  if(!P.meta.title || !P.meta.title.trim()){
+    openInfo();
+    $('mTitle').focus();
+    toast('Add a title before saving');
+    return;
+  }
+  $('bSave').disabled = true; toast('Building files…');
+  try{
+    P.meta.draft = (P.meta.draft|0) + 1;
+    const json = JSON.stringify(P);
+    const base = slug(P.meta.title) + '-d' + P.meta.draft;
+    const files = [{ name:'project.json', data:new TextEncoder().encode(json) }];
+    try{
+      const pdf = await buildPDF();
+      files.push({ name: base + '.pdf', data:new Uint8Array(pdf) });
+    }catch(err){
+      toast('Saved without PDF: ' + err.message);
+    }
+    dl(zip(files), base + '.zip');
+    renderAll();
+    toast('Saved — draft ' + P.meta.draft);
+  }catch(e){
+    P.meta.draft = Math.max(0,(P.meta.draft|0)-1);
+    toast('Save failed: ' + e.message);
+  }finally{ $('bSave').disabled = false; }
+}
+async function openProject(file){
+  try{
+    let txt;
+    if(file.name.toLowerCase().endsWith('.zip')) txt = await unzipFindJSON(await file.arrayBuffer());
+    else txt = await file.text();
+    const o = JSON.parse(txt);
+    if(!o || !o.lines || !o.shots) throw new Error('Not a LineBoard project');
+    P = o; P.aspect = P.aspect || 1.778; P.meta = P.meta || {draft:0};
+    undoStack=[]; selShot=null;
+    $('pasteBlock').style.display='none'; $('scriptBlock').style.display='block';
+    renderAll(); toast('Opened draft ' + P.meta.draft);
+  }catch(e){ toast('Could not open: ' + e.message); }
+}
+
+/* ---------- wiring ---------- */
+document.querySelectorAll('.tab').forEach(t=>{
+  t.addEventListener('click', ()=>{
+    document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));
+    document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
+    t.classList.add('active'); $(t.dataset.view).classList.add('active');
+    if(t.dataset.view==='vBoard') renderBoard(); else requestAnimationFrame(drawBrackets);
+  });
+});
+
+function doClose(){
+  P = null; selShot = null; undoStack = [];
+  $('scriptIn').value = '';
+  $('pasteBlock').style.display = 'block';
+  $('scriptBlock').style.display = 'none';
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  document.querySelector('.tab[data-view="vScript"]').classList.add('active');
+  document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
+  $('vScript').classList.add('active');
+  $('brandsub').textContent = 'no project';
+  $('noShots').style.display = 'block';
+  $('splitWrap').style.display = 'none';
+}
+function closeProject(){
+  if(!P){ toast('No project open'); return; }
+  const ok = confirm('Close this project?\n\nMake sure you already saved — closing does not save automatically, and anything since your last Save will be lost.');
+  if(!ok) return;
+  doClose();
+  toast('Project closed');
+}
+$('bClose').addEventListener('click', closeProject);
+
+$('bParse').addEventListener('click', ()=>{
+  const txt = $('scriptIn').value.trim();
+  if(!txt){ toast('Paste a script first'); return; }
+  newProject(parseScript(txt));
+  $('pasteBlock').style.display='none'; $('scriptBlock').style.display='block';
+  renderAll();
+});
+$('bUpload').addEventListener('click', ()=> $('fileScript').click());
+$('fileScript').addEventListener('change', e=>{
+  const f = e.target.files[0]; e.target.value='';
+  if(!f) return;
+  const r = new FileReader();
+  r.onload = ()=>{ $('scriptIn').value = String(r.result); toast('Loaded ' + f.name + ' — check it, then Load script'); };
+  r.onerror = ()=> toast('Could not read that file');
+  r.readAsText(f);
+});
+$('bDemo').addEventListener('click', ()=>{
+  $('scriptIn').value =
+`INT. FOREST CABIN - NIGHT
+
+Rain hits the tin roof. Maya, thirties and soaked through, pushes the door shut behind her.
+
+She scans the room. A single oil lamp. A table. A rifle leaning in the corner.
+
+MAYA
+I know you're here. I can smell the smoke.
+
+A chair creaks upstairs. She freezes.
+
+EXT. TREELINE - CONTINUOUS
+
+Headlights sweep the pines. Two figures move between the trunks, unhurried.`;
+});
+$('bReplace').addEventListener('click', ()=>{
+  if(!confirm('Replace the script? Shots are tied to line positions and will be cleared.')) return;
+  $('pasteBlock').style.display='block'; $('scriptBlock').style.display='none';
+  $('scriptIn').value = P.lines.map(l=>l.text).join('\n');
+});
+$('bUndo').addEventListener('click', undo);
+$('bDel').addEventListener('click', delShot);
+
+$('bSave').addEventListener('click', saveProject);
+$('bLoad').addEventListener('click', ()=>{
+  if(P){
+    const ok = confirm('A project is already open ("'+(P.meta.title||'Untitled')+'").\n\nClose it first? Make sure you already saved — anything since your last Save will be lost.');
+    if(!ok) return;
+    doClose();
+  }
+  $('fileOpen').click();
+});
+$('fileOpen').addEventListener('change', e=>{ if(e.target.files[0]) openProject(e.target.files[0]); e.target.value=''; });
+
+/* info modal */
+function openInfo(){
+  if(!P) return;
+  $('mTitle').value=P.meta.title||''; $('mProd').value=P.meta.production||'';
+  $('mDir').value=P.meta.director||''; $('mDop').value=P.meta.dop||'';
+  $('mAspect').value=String(P.aspect); $('mDraft').value=P.meta.draft;
+  $('mod').classList.add('open');
+}
+$('bInfo').addEventListener('click', openInfo);
+$('mCancel').addEventListener('click', ()=> $('mod').classList.remove('open'));
+$('mOk').addEventListener('click', ()=>{
+  P.meta.title=$('mTitle').value.trim();
+  P.meta.production=$('mProd').value.trim();
+  P.meta.director=$('mDir').value.trim();
+  P.meta.dop=$('mDop').value.trim();
+  P.aspect=parseFloat($('mAspect').value)||1.778;
+  $('mod').classList.remove('open'); renderAll();
+});
+
+/* editor wiring */
+$('tPen').addEventListener('click', ()=>setTool('pen'));
+$('tErase').addEventListener('click', ()=>setTool('erase'));
+$('tUndo').addEventListener('click', ()=>{
+  if(!dUndo.length){ toast('Nothing to undo'); return; }
+  dRedo.push(cv.toDataURL()); restore(dUndo.pop());
+});
+$('tRedo').addEventListener('click', ()=>{
+  if(!dRedo.length){ toast('Nothing to redo'); return; }
+  dUndo.push(cv.toDataURL()); restore(dRedo.pop());
+});
+$('tImg').addEventListener('click', ()=> $('fileImg').click());
+$('tCam').addEventListener('click', ()=> $('fileCam').click());
+$('fileImg').addEventListener('change', e=>{ loadImageInto(e.target.files[0]); e.target.value=''; });
+$('fileCam').addEventListener('change', e=>{ loadImageInto(e.target.files[0]); e.target.value=''; });
+$('tClrImg').addEventListener('click', ()=>{
+  const s=P.shots.find(x=>x.id===editId); if(!s) return;
+  s.bg=null; $('stageBg').removeAttribute('src'); $('stageBg').style.display='none';
+});
+$('tClrDraw').addEventListener('click', ()=>{
+  dUndo.push(cv.toDataURL()); ctx.clearRect(0,0,cv.width,cv.height); commitDraw();
+});
+$('tClose').addEventListener('click', ()=>{
+  commitDraw(); $('ov').classList.remove('open'); renderAll();
+});
+$('cv') && (()=>{
+  const c = $('cv');
+  c.addEventListener('pointerdown', strokeStart);
+  c.addEventListener('pointermove', strokeMove);
+  c.addEventListener('pointerup', strokeEnd);
+  c.addEventListener('pointercancel', strokeEnd);
+  c.addEventListener('pointerleave', strokeEnd);
+})();
+
+window.addEventListener('resize', ()=>{ if(P){ drawBrackets(); renderBoard(); } });
+window.addEventListener('beforeunload', e=>{ if(P && P.shots.length){ e.preventDefault(); e.returnValue=''; } });
+</script>
+</body>
+</html>
