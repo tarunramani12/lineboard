@@ -95,16 +95,16 @@
   }
   .brk.sel{background:var(--red); width:2.5px;}
   .brk .pin{
-    position:absolute; left:-9px; top:-27px; min-width:16px; height:17px; padding:0 5px;
+    position:absolute; left:18px; top:-8.5px; min-width:16px; height:17px; padding:0 5px;
     border-radius:9px; background:var(--ink); color:var(--paper);
     font-size:9.5px; font-weight:800; display:flex; align-items:center; justify-content:center;
-    white-space:nowrap;
+    white-space:nowrap; z-index:1;
   }
   .brk.sel .pin{background:var(--red);}
   .brk .h{
     position:absolute; left:-4.75px; width:12px; height:12px; border-radius:50%;
     background:var(--paper); border:2px solid var(--ink);
-    touch-action:none; cursor:ns-resize;
+    touch-action:none; cursor:ns-resize; z-index:2;
   }
   .brk.sel .h{border-color:var(--red);}
   .brk .h:hover{background:var(--soft);}
