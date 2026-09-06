@@ -61,6 +61,12 @@
     font-family:"Courier New",monospace; font-size:13px; line-height:1.6; resize:vertical;
   }
   .rowbtns{display:flex; gap:8px; margin-top:12px; flex-wrap:wrap;}
+  .scripttools{
+    position:-webkit-sticky; position:sticky; top:0; z-index:15;
+    background:var(--paper); border-bottom:2px solid var(--ink);
+    display:flex; gap:8px; flex-wrap:wrap;
+    padding:10px 14px; margin:0 -14px 14px;
+  }
 
   .scriptwrap{max-width:760px; margin:0 auto; padding:16px 14px 120px;}
   .hint{
@@ -108,7 +114,21 @@
   }
 
   /* ---------- SHOTS + BOARD ---------- */
-  .boardwrap{padding:16px 14px 120px; max-width:1100px; margin:0 auto;}
+  .boardwrap{padding:16px 14px 76px; max-width:1100px; margin:0 auto;}
+  .stickybar{
+    position:-webkit-sticky; position:sticky; bottom:0; left:0; right:0; width:100%;
+    background:var(--paper); border-top:2px solid var(--ink);
+    display:flex; align-items:center; justify-content:space-between; gap:10px;
+    padding:9px 14px; z-index:10;
+  }
+  .stickybar .sel-info{font-size:12px; font-weight:700; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+  .stickybar .sel-info em{font-style:normal; font-weight:400; color:var(--mid);}
+  .stickybar .sel-acts{display:flex; gap:8px; flex:0 0 auto;}
+  td .rowdel{
+    border:1.5px solid var(--red); color:var(--red); background:var(--paper);
+    width:22px; height:22px; border-radius:5px; font-size:13px; font-weight:800;
+    line-height:1; display:flex; align-items:center; justify-content:center;
+  }
   .split{display:flex; gap:18px; align-items:flex-start;}
   .ptitle{font-size:10.5px; font-weight:800; letter-spacing:.08em; margin:0 0 8px 2px; color:var(--mid);}
   .listcol{flex:0 0 300px;}
@@ -255,7 +275,7 @@ I know you're here."></textarea>
   </div>
 
   <div class="scriptwrap" id="scriptBlock" style="display:none;">
-    <div class="rowbtns" style="margin-bottom:12px;">
+    <div class="scripttools">
       <button class="btn sm" id="bUndo">Undo</button>
       <button class="btn sm danger" id="bDel" disabled>Delete shot</button>
       <button class="btn sm" id="bReplace">Replace script</button>
@@ -277,6 +297,13 @@ I know you're here."></textarea>
         <div class="ptitle">STORYBOARD</div>
         <div class="grid" id="board"></div>
       </div>
+    </div>
+  </div>
+  <div class="stickybar">
+    <div class="sel-info" id="selInfo">No shot selected</div>
+    <div class="sel-acts">
+      <button class="btn sm" id="bUndo2">Undo</button>
+      <button class="btn sm danger" id="bDel2" disabled>Delete shot</button>
     </div>
   </div>
 </div>
@@ -423,7 +450,7 @@ function newProject(lines){
 }
 function snapshot(){
   undoStack.push(JSON.stringify(P.shots));
-  if(undoStack.length>40) undoStack.shift();
+  if(undoStack.length>10) undoStack.shift();
   $('bUndo').disabled = false;
 }
 function undo(){
@@ -450,11 +477,21 @@ function addShot(lineIdx){
   P.shots.push(s); selShot = s.id;
   renderAll();
 }
-function delShot(){
-  if(!selShot) return;
+function delShot(id){
+  const target = id || selShot;
+  if(!target) return;
   snapshot();
-  P.shots = P.shots.filter(s=>s.id!==selShot);
-  selShot = null; renderAll(); toast('Shot deleted');
+  P.shots = P.shots.filter(s=>s.id!==target);
+  if(selShot===target) selShot = null;
+  renderAll(); toast('Shot deleted');
+}
+function delShotConfirm(id){
+  const target = id || selShot;
+  if(!target) return;
+  const s = P.shots.find(x=>x.id===target);
+  const label = s ? (numOf(target) + (s.desc ? ' — '+s.desc : '')) : 'this shot';
+  if(!confirm('Delete shot '+label+'?\n\nThis also removes any drawing or image on its board.')) return;
+  delShot(target);
 }
 
 /* ---------- render: script ---------- */
@@ -572,22 +609,28 @@ function renderBoard(){
   const list = numbered();
   $('noShots').style.display = list.length ? 'none' : 'block';
   $('splitWrap').style.display = list.length ? 'flex' : 'none';
-  if(!list.length) return;
+  if(!list.length){
+    $('selInfo').textContent = 'No shot selected';
+    $('bDel2').disabled = true;
+    $('bUndo2').disabled = !undoStack.length;
+    return;
+  }
 
   // table
-  let html = '<tr><th>Shot</th><th>Description / Comment</th><th>Type</th></tr>';
+  let html = '<tr><th>Shot</th><th>Description / Comment</th><th>Type</th><th></th></tr>';
   let lastScene = null;
   list.forEach(s=>{
     if(s.scene !== lastScene){
       lastScene = s.scene;
-      html += '<tr class="scenehead"><td colspan="3">SCENE '+s.scene+' — '+esc(sheadShort(s.scene))+'</td></tr>';
+      html += '<tr class="scenehead"><td colspan="4">SCENE '+s.scene+' — '+esc(sheadShort(s.scene))+'</td></tr>';
     }
     html += '<tr data-id="'+s.id+'" class="'+(s.id===selShot?'sel':'')+'">'+
       '<td><span class="shotno">'+s.no+'</span></td>'+
       '<td><input class="desc" data-id="'+s.id+'" value="'+esc(s.desc)+'" placeholder="describe the shot"></td>'+
       '<td><select class="type" data-id="'+s.id+'">'+
         SHOT_TYPES.map(t=>'<option'+(t===s.type?' selected':'')+'>'+t+'</option>').join('')+
-      '</select></td></tr>';
+      '</select></td>'+
+      '<td><button class="rowdel" data-id="'+s.id+'" title="Delete shot">×</button></td></tr>';
   });
   $('tbl').innerHTML = html;
   $('tbl').querySelectorAll('input.desc').forEach(inp=>{
@@ -601,8 +644,11 @@ function renderBoard(){
       const s = P.shots.find(x=>x.id===e.target.dataset.id); if(s) s.type = e.target.value;
     });
   });
+  $('tbl').querySelectorAll('.rowdel').forEach(btn=>{
+    btn.addEventListener('click', e=>{ e.stopPropagation(); delShotConfirm(btn.dataset.id); });
+  });
   $('tbl').querySelectorAll('tr[data-id]').forEach(tr=>{
-    tr.addEventListener('click', e=>{ if(e.target.tagName==='INPUT'||e.target.tagName==='SELECT') return; selShot = tr.dataset.id; markSel(); });
+    tr.addEventListener('click', e=>{ if(e.target.tagName==='INPUT'||e.target.tagName==='SELECT'||e.target.classList.contains('rowdel')) return; selShot = tr.dataset.id; markSel(); });
   });
 
   // board
@@ -634,7 +680,11 @@ function syncBoxLabels(){
 function markSel(){
   document.querySelectorAll('#tbl tr[data-id]').forEach(tr=> tr.classList.toggle('sel', tr.dataset.id===selShot));
   document.querySelectorAll('.box').forEach(b=> b.classList.toggle('sel', b.dataset.id===selShot));
+  const cur = selShot ? numbered().find(s=>s.id===selShot) : null;
+  $('selInfo').innerHTML = cur ? (cur.no + ' <em>' + esc(cur.desc||'(no description)') + '</em>') : 'No shot selected';
   $('bDel').disabled = !selShot;
+  $('bDel2').disabled = !selShot;
+  $('bUndo2').disabled = !undoStack.length;
   drawBrackets();
 }
 
@@ -975,7 +1025,13 @@ $('bClose').addEventListener('click', closeProject);
 $('bParse').addEventListener('click', ()=>{
   const txt = $('scriptIn').value.trim();
   if(!txt){ toast('Paste a script first'); return; }
-  newProject(parseScript(txt));
+  const lines = parseScript(txt);
+  if(P){
+    // re-entering script text for an existing project: keep title/production/director/dop/aspect/draft
+    P.lines = lines; P.shots = []; undoStack = []; selShot = null;
+  } else {
+    newProject(lines);
+  }
   $('pasteBlock').style.display='none'; $('scriptBlock').style.display='block';
   renderAll();
 });
@@ -1011,7 +1067,9 @@ $('bReplace').addEventListener('click', ()=>{
   $('scriptIn').value = P.lines.map(l=>l.text).join('\n');
 });
 $('bUndo').addEventListener('click', undo);
-$('bDel').addEventListener('click', delShot);
+$('bDel').addEventListener('click', ()=>delShot());
+$('bUndo2').addEventListener('click', undo);
+$('bDel2').addEventListener('click', ()=>delShotConfirm());
 
 $('bSave').addEventListener('click', saveProject);
 $('bLoad').addEventListener('click', ()=>{
