@@ -342,6 +342,7 @@ I know you're here."></textarea>
       <select id="mAspect">
         <option value="1.778">16:9</option>
         <option value="2.39">2.39:1 (scope)</option>
+        <option value="2.35">2.35:1</option>
         <option value="1.333">4:3</option>
         <option value="1.85">1.85:1</option>
         <option value="1">1:1</option>
@@ -383,12 +384,13 @@ function esc(s){ return (s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>
 
 /* ---------- script parsing ---------- */
 const HEAD_RE = /^(INT\.?|EXT\.?|EST\.?|INT\.?\/EXT\.?|I\/E\.?)[\s.\-]/i;
+const NUM_HEAD_RE = /^\d+[A-Za-z]?\.?\s+(INT\.?|EXT\.?|EST\.?|INT\.?\/EXT\.?|I\/E\.?)[\s.\-]/i;
 
 function classify(raw, prev, next){
   const t = raw.trim();
   if(!t) return 'blank';
   if(t.startsWith('.') && !t.startsWith('..')) return 'heading';       // fountain forced heading
-  if(HEAD_RE.test(t)) return 'heading';
+  if(HEAD_RE.test(t) || NUM_HEAD_RE.test(t)) return 'heading';         // also catches "1 EXT. ..." style manual numbering
   if(/^\(.*\)$/.test(t)) return 'paren';
   if(t.startsWith('@')) return 'character';
   const isUpper = t === t.toUpperCase() && /[A-Z]/.test(t);
@@ -405,6 +407,10 @@ function parseScript(text){
     const type = classify(raw[i], prev, raw[i+1]);
     let disp = raw[i].trim();
     if(type==='heading' && disp.startsWith('.')) disp = disp.slice(1);
+    if(type==='heading'){
+      const numLead = disp.match(/^\d+[A-Za-z]?\.?\s+/);
+      if(numLead) disp = disp.slice(numLead[0].length);
+    }
     if(type==='character' && disp.startsWith('@')) disp = disp.slice(1);
     lines.push({ text: disp, type });
   }
@@ -573,8 +579,10 @@ function startDrag(e, id, edge){
   e.preventDefault(); e.stopPropagation();
   selShot = id; snapshot();
   drag = { id, edge };
+  try{ e.currentTarget.setPointerCapture(e.pointerId); }catch(err){}
   window.addEventListener('pointermove', onDrag);
   window.addEventListener('pointerup', endDrag, {once:true});
+  window.addEventListener('pointercancel', endDrag, {once:true});
   renderAll();
 }
 function lineAtY(clientY){
@@ -599,6 +607,8 @@ function onDrag(e){
 function endDrag(){
   drag = null;
   window.removeEventListener('pointermove', onDrag);
+  window.removeEventListener('pointerup', endDrag);
+  window.removeEventListener('pointercancel', endDrag);
   renderAll();
 }
 
