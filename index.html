@@ -658,9 +658,7 @@ function defaultCastIdsForScene(sceneNo){
   return P.cast.filter(c=>names.has(c.character)).map(c=>c.id);
 }
 function defaultCrewIdsForScene(){
-  const ids = [];
-  (P.crew||[]).forEach(d=>{ if(PRECHECK_DEPTS.includes(d.name)) d.roles.forEach(r=> ids.push(r.id)); });
-  return ids;
+  return (P.crew||[]).filter(d=>PRECHECK_DEPTS.includes(d.name)).map(d=>d.id);
 }
 function effCastIds(bd, sceneNo){ return bd.castIds !== null ? bd.castIds : defaultCastIdsForScene(sceneNo); }
 function effCrewIds(bd){ return bd.crewIds !== null ? bd.crewIds : defaultCrewIdsForScene(); }
@@ -1117,6 +1115,7 @@ function renderBreakdownForm(){
       '</div>';
   };
 
+  h += '<div class="bf-two">'+fld('LOCATION (SHOOT)','location',false)+fld('DATE','date',false)+'</div>';
   h += fld('DESCRIPTION / SYNOPSIS / PRODUCTION NOTES','description',true,true);
 
   // ---- CAST ----
@@ -1134,24 +1133,17 @@ function renderBreakdownForm(){
 
   // ---- CREW ----
   h += '<div class="bf-fld"><label>CREW ON THIS SCENE</label><div class="inc-list">';
-  let anyCrewIn=false;
-  (P.crew||[]).forEach(d=>{
-    const rin = d.roles.filter(r=>crewIds.includes(r.id));
-    if(!rin.length) return;
-    anyCrewIn=true;
-    h += '<div class="inc-grouplabel">'+esc(d.name).toUpperCase()+'</div>';
-    rin.forEach(r=>{
-      h += '<div class="inc-row"><span>'+esc(r.role||'(role)')+(r.name?' — '+esc(r.name):'')+'</span><button class="xbtn" data-remcrew="'+r.id+'">×</button></div>';
-    });
+  const crewIn = (P.crew||[]).filter(d=>crewIds.includes(d.id));
+  if(!crewIn.length) h += '<div class="inc-empty">None yet.</div>';
+  crewIn.forEach(d=>{
+    const names = d.roles.map(r=> r.role + (r.name?': '+r.name:'')).join(', ') || '(no roles set)';
+    h += '<div class="inc-row"><span><b>'+esc(d.name)+'</b> — '+esc(names)+'</span><button class="xbtn" data-remcrew="'+d.id+'">×</button></div>';
   });
-  if(!anyCrewIn) h += '<div class="inc-empty">None yet.</div>';
   h += '</div>';
-  h += '<select class="inc-add" data-addcrew><option value="">+ Add crew member…</option>';
-  (P.crew||[]).forEach(d=>{
-    const rout = d.roles.filter(r=>!crewIds.includes(r.id));
-    if(rout.length) h += '<optgroup label="'+esc(d.name)+'">'+rout.map(r=>'<option value="'+r.id+'">'+esc(r.role||'(role)')+(r.name?' — '+esc(r.name):'')+'</option>').join('')+'</optgroup>';
-  });
-  h += '</select></div>';
+  const crewOut = (P.crew||[]).filter(d=>!crewIds.includes(d.id));
+  h += '<select class="inc-add" data-addcrew><option value="">+ Add crew department…</option>'+
+    crewOut.map(d=>'<option value="'+d.id+'">'+esc(d.name)+'</option>').join('')+
+    '</select></div>';
 
   h += fld('EXTRAS','extras',true);
 
@@ -1190,7 +1182,6 @@ function renderBreakdownForm(){
   });
   h += '</select></div>';
 
-  h += '<div class="bf-two">'+fld('LOCATION (SHOOT)','location',false)+fld('DATE','date',false)+'</div>';
   h += '<div class="bf-two">'+fld('WARDROBE','wardrobe',true)+fld('HAIR / MAKE-UP','hairMakeup',true)+'</div>';
   h += '<div class="bf-two">'+fld('SOUND EFFECTS','soundFx',true)+fld('SPECIAL EFFECTS','specialFx',true)+'</div>';
 
@@ -1566,6 +1557,20 @@ async function buildPDF(){
     const maxLines = Math.max(1, Math.floor((h-6)/3.6));
     lines.slice(0,maxLines).forEach((ln,i)=> doc.text(ln, x+2, y+8+i*3.6));
   };
+  const measureListLines = (items, w)=>{
+    doc.setFontSize(7.5);
+    let n=0; (items.length?items:['—']).forEach(item=> n += doc.splitTextToSize(item, w-4).length);
+    return n;
+  };
+  const boxList = (label, items, x, y, w, h)=>{
+    doc.setLineWidth(0.4); doc.rect(x, y, w, h);
+    doc.setFont('helvetica','bold'); doc.setFontSize(6.5);
+    doc.text(label, x+2, y+4);
+    doc.setFont('helvetica','normal'); doc.setFontSize(7.5);
+    let allLines = [];
+    (items.length?items:['—']).forEach(item=> allLines = allLines.concat(doc.splitTextToSize(item, w-4)));
+    allLines.forEach((ln,i)=> doc.text(ln, x+2, y+8+i*3.6));
+  };
   for(const sc of scenes2){
     doc.addPage();
     doc.setFont('helvetica','bold'); doc.setFontSize(11);
@@ -1583,37 +1588,37 @@ async function buildPDF(){
     const crIds = effCrewIds(bd);
     const prIds = effPropIds(bd, sc.scene);
     const eqIds = effEquipIds(bd);
-    const castTxt = (P.cast||[]).filter(c=>cIds.includes(c.id)).map(c=> c.character + (c.actor?' — '+c.actor:'')).join('; ') || '—';
-    const crewTxt = [];
-    (P.crew||[]).forEach(d=>{
-      const names = d.roles.filter(r=>crIds.includes(r.id)).map(r=> r.role + (r.name?': '+r.name:''));
-      if(names.length) crewTxt.push(d.name+' — '+names.join(', '));
-    });
-    const crewStr = crewTxt.join('  |  ') || '—';
-    const propTxt = (P.props||[]).filter(p=>prIds.includes(p.id)).map(p=> p.item+' ×'+p.qty).join('; ') || '—';
-    const equipTxtParts = [];
+    const castItems = (P.cast||[]).filter(c=>cIds.includes(c.id)).map(c=> c.character + (c.actor?' — '+c.actor:''));
+    const crewItems = (P.crew||[]).filter(d=>crIds.includes(d.id)).map(d=>
+      d.name + ' — ' + (d.roles.map(r=> r.role + (r.name?': '+r.name:'')).join(', ') || '(no roles set)')
+    );
+    const propItems = (P.props||[]).filter(p=>prIds.includes(p.id)).map(p=> p.item+' ×'+p.qty);
+    const equipItems = [];
     (P.equipment||[]).forEach(c=>{
       const names = c.items.filter(it=>eqIds.includes(it.id)).map(it=> it.model+' ×'+it.qty);
-      if(names.length) equipTxtParts.push(c.name+' — '+names.join(', '));
+      if(names.length) equipItems.push(c.name+' — '+names.join(', '));
     });
-    const equipStr = equipTxtParts.join('  |  ') || '—';
 
-    let y = M+20; const colW = (PW-M*2-6)/2;
-    box('DESCRIPTION / SYNOPSIS / PRODUCTION NOTES', bd.description, M, y, PW-M*2, 22);
-    y += 26;
-    box('CAST', castTxt, M, y, PW-M*2, 16);
-    y += 20;
-    box('CREW', crewStr, M, y, PW-M*2, 18);
-    y += 22;
-    box('EXTRAS', bd.extras, M, y, PW-M*2, 14);
-    y += 18;
-    box('PROPS', propTxt, M, y, PW-M*2, 14);
-    y += 18;
-    box('EQUIPMENT', equipStr, M, y, PW-M*2, 14);
-    y += 18;
+    let y = M+20; const colW = (PW-M*2-6)/2; const fullW = PW-M*2;
     box('LOCATION (SHOOT)', bd.location, M, y, colW, 12);
     box('DATE', bd.date, M+colW+6, y, colW, 12);
     y += 16;
+    box('DESCRIPTION / SYNOPSIS / PRODUCTION NOTES', bd.description, M, y, fullW, 22);
+    y += 26;
+    let hgt = Math.max(10, measureListLines(castItems, fullW)*3.6+7);
+    boxList('CAST', castItems, M, y, fullW, hgt);
+    y += hgt+4;
+    hgt = Math.max(10, measureListLines(crewItems, fullW)*3.6+7);
+    boxList('CREW', crewItems, M, y, fullW, hgt);
+    y += hgt+4;
+    box('EXTRAS', bd.extras, M, y, fullW, 14);
+    y += 18;
+    hgt = Math.max(10, measureListLines(propItems, fullW)*3.6+7);
+    boxList('PROPS', propItems, M, y, fullW, hgt);
+    y += hgt+4;
+    hgt = Math.max(10, measureListLines(equipItems, fullW)*3.6+7);
+    boxList('EQUIPMENT', equipItems, M, y, fullW, hgt);
+    y += hgt+4;
     box('WARDROBE', bd.wardrobe, M, y, colW, 16);
     box('HAIR / MAKE-UP', bd.hairMakeup, M+colW+6, y, colW, 16);
     y += 20;
