@@ -119,6 +119,7 @@
   /* ---------- CAST & CREW ---------- */
   .crewwrap{padding:16px 14px 60px; max-width:760px; margin:0 auto;}
   #castTbl, #propsTbl{border-collapse:collapse; width:100%; font-size:12px;}
+  select.pscenes{width:100px; border:1px solid var(--grey); border-radius:4px; font-size:11px; padding:3px; font-family:inherit;}
   #castTbl th, #propsTbl th{text-align:left; padding:7px 8px; border-bottom:2px solid var(--ink); font-size:10px; letter-spacing:.05em;}
   #castTbl td, #propsTbl td{padding:5px 8px; border-bottom:1px solid var(--grey);}
   #castTbl input, #propsTbl input{width:100%; border:none; background:transparent; font-size:12px; padding:3px 2px; font-family:inherit;}
@@ -178,6 +179,15 @@
   .checkrow input[type=checkbox]{width:16px; height:16px; flex:0 0 auto;}
   .checkrow .dtag{font-size:9.5px; color:var(--mid); font-weight:700;}
   .cc-deptlabel{font-size:10px; font-weight:800; color:var(--mid); letter-spacing:.05em; padding:6px 10px 2px;}
+  .inc-list{border:2px solid var(--ink); border-radius:6px; overflow:hidden; margin-bottom:6px;}
+  .inc-row{display:flex; align-items:center; justify-content:space-between; gap:8px; padding:6px 10px; font-size:12.5px; border-bottom:1px solid var(--grey);}
+  .inc-row:last-child{border-bottom:none;}
+  .inc-empty{padding:8px 10px; font-size:12px; color:var(--mid);}
+  .inc-grouplabel{font-size:9.5px; font-weight:800; color:var(--mid); letter-spacing:.05em; padding:5px 10px 1px; background:var(--soft);}
+  select.inc-add{
+    width:100%; border:2px dashed var(--grey); border-radius:6px; padding:7px; font-size:12.5px;
+    font-family:inherit; background:var(--paper); color:var(--mid); font-weight:700;
+  }
   .stickybar{
     position:-webkit-sticky; position:sticky; bottom:0; left:0; right:0; width:100%;
     background:var(--paper); border-top:2px solid var(--ink);
@@ -311,8 +321,8 @@
     <button class="tab active" data-view="vScript">Script</button>
     <button class="tab" data-view="vBoard">Shots + Board</button>
     <button class="tab" data-view="vCrew">Cast &amp; Crew</button>
-    <button class="tab" data-view="vBreak">Script Breakdown</button>
     <button class="tab" data-view="vProps">Props &amp; Equipment</button>
+    <button class="tab" data-view="vBreak">Script Breakdown</button>
   </div>
   <div class="topacts">
     <button class="btn sm" id="bInfo">Info</button>
@@ -389,15 +399,7 @@ I know you're here."></textarea>
   </div>
 </div>
 
-<!-- SCRIPT BREAKDOWN (page 4) -->
-<div class="view" id="vBreak">
-  <div class="breakwrap">
-    <div id="noBreakProj" class="empty">No script loaded yet.<br>Load a script first to see scenes here.</div>
-    <div class="listbox" id="breakList" style="display:none;"></div>
-  </div>
-</div>
-
-<!-- PROPS & EQUIPMENT (page 5) -->
+<!-- PROPS & EQUIPMENT (page 4) -->
 <div class="view" id="vProps">
   <div class="crewwrap">
     <div id="noPropsProj" class="empty">No script loaded yet.<br>Load a script first.</div>
@@ -410,6 +412,14 @@ I know you're here."></textarea>
       <div class="listbox" style="margin-bottom:14px;"><table id="propsTbl"></table></div>
       <div class="rowbtns" style="margin:-14px 0 22px;"><button class="btn sm" id="bAddProp">+ Add prop</button></div>
     </div>
+  </div>
+</div>
+
+<!-- SCRIPT BREAKDOWN (page 5) -->
+<div class="view" id="vBreak">
+  <div class="breakwrap">
+    <div id="noBreakProj" class="empty">No script loaded yet.<br>Load a script first to see scenes here.</div>
+    <div class="listbox" id="breakList" style="display:none;"></div>
   </div>
 </div>
 
@@ -668,9 +678,11 @@ function allEquipItems(){
 function defaultEquipIds(){
   return allEquipItems().filter(x=> (parseFloat(x.item.qty)||0) > 0).map(x=>x.item.id);
 }
-function defaultPropIds(){ return []; } // props are scene-specific, no sensible universal default
+function defaultPropIdsForScene(sceneNo){
+  return (P.props||[]).filter(p=>(parseFloat(p.qty)||0)>0 && (p.scenes||[]).includes(sceneNo)).map(p=>p.id);
+}
 function effEquipIds(bd){ return bd.equipIds !== null ? bd.equipIds : defaultEquipIds(); }
-function effPropIds(bd){ return bd.propIds !== null ? bd.propIds : defaultPropIds(); }
+function effPropIds(bd, sceneNo){ return bd.propIds !== null ? bd.propIds : defaultPropIdsForScene(sceneNo); }
 
 /* ---------- numbering (derived, never editable) ---------- */
 function numbered(){
@@ -1090,7 +1102,7 @@ function renderBreakdownForm(){
   const castIds = effCastIds(bd, sceneNo);
   const crewIds = effCrewIds(bd);
   const equipIds = effEquipIds(bd);
-  const propIds = effPropIds(bd);
+  const propIds = effPropIds(bd, sceneNo);
 
   let h = '<div class="bf-auto">'+
     '<span><b>'+esc(sc.intext)+'</b></span>'+
@@ -1107,48 +1119,76 @@ function renderBreakdownForm(){
 
   h += fld('DESCRIPTION / SYNOPSIS / PRODUCTION NOTES','description',true,true);
 
-  h += '<div class="bf-fld"><label>CAST ON THIS SCENE</label><div class="checklist">';
-  if(!(P.cast||[]).length) h += '<div class="checkrow" style="color:var(--mid);">No cast added yet — add them on the Cast &amp; Crew page.</div>';
-  (P.cast||[]).forEach(c=>{
-    h += '<div class="checkrow"><input type="checkbox" data-castchk="'+c.id+'" '+(castIds.includes(c.id)?'checked':'')+'>'+
-      '<span>'+esc(c.character)+(c.actor?' — '+esc(c.actor):'')+'</span></div>';
+  // ---- CAST ----
+  h += '<div class="bf-fld"><label>CAST ON THIS SCENE</label><div class="inc-list">';
+  const castIn = (P.cast||[]).filter(c=>castIds.includes(c.id));
+  if(!castIn.length) h += '<div class="inc-empty">None yet.</div>';
+  castIn.forEach(c=>{
+    h += '<div class="inc-row"><span>'+esc(c.character)+(c.actor?' — '+esc(c.actor):'')+'</span><button class="xbtn" data-remcast="'+c.id+'">×</button></div>';
   });
-  h += '</div></div>';
+  h += '</div>';
+  const castOut = (P.cast||[]).filter(c=>!castIds.includes(c.id));
+  h += '<select class="inc-add" data-addcast><option value="">+ Add cast member…</option>'+
+    castOut.map(c=>'<option value="'+c.id+'">'+esc(c.character)+(c.actor?' — '+esc(c.actor):'')+'</option>').join('')+
+    '</select></div>';
 
-  h += '<div class="bf-fld"><label>CREW ON THIS SCENE</label><div class="checklist">';
-  if(!(P.crew||[]).length) h += '<div class="checkrow" style="color:var(--mid);">No crew added yet — add them on the Cast &amp; Crew page.</div>';
+  // ---- CREW ----
+  h += '<div class="bf-fld"><label>CREW ON THIS SCENE</label><div class="inc-list">';
+  let anyCrewIn=false;
   (P.crew||[]).forEach(d=>{
-    if(!d.roles.length) return;
-    h += '<div class="cc-deptlabel">'+esc(d.name).toUpperCase()+'</div>';
-    d.roles.forEach(r=>{
-      h += '<div class="checkrow"><input type="checkbox" data-crewchk="'+r.id+'" '+(crewIds.includes(r.id)?'checked':'')+'>'+
-        '<span>'+esc(r.role||'(role)')+(r.name?' — '+esc(r.name):'')+'</span></div>';
+    const rin = d.roles.filter(r=>crewIds.includes(r.id));
+    if(!rin.length) return;
+    anyCrewIn=true;
+    h += '<div class="inc-grouplabel">'+esc(d.name).toUpperCase()+'</div>';
+    rin.forEach(r=>{
+      h += '<div class="inc-row"><span>'+esc(r.role||'(role)')+(r.name?' — '+esc(r.name):'')+'</span><button class="xbtn" data-remcrew="'+r.id+'">×</button></div>';
     });
   });
-  h += '</div></div>';
+  if(!anyCrewIn) h += '<div class="inc-empty">None yet.</div>';
+  h += '</div>';
+  h += '<select class="inc-add" data-addcrew><option value="">+ Add crew member…</option>';
+  (P.crew||[]).forEach(d=>{
+    const rout = d.roles.filter(r=>!crewIds.includes(r.id));
+    if(rout.length) h += '<optgroup label="'+esc(d.name)+'">'+rout.map(r=>'<option value="'+r.id+'">'+esc(r.role||'(role)')+(r.name?' — '+esc(r.name):'')+'</option>').join('')+'</optgroup>';
+  });
+  h += '</select></div>';
 
   h += fld('EXTRAS','extras',true);
 
-  const availProps = (P.props||[]).filter(p=>(parseFloat(p.qty)||0)>0);
-  h += '<div class="bf-fld"><label>PROPS ON THIS SCENE</label><div class="checklist">';
-  if(!availProps.length) h += '<div class="checkrow" style="color:var(--mid);">No props with quantity &gt; 0 yet — add them on the Props &amp; Equipment page.</div>';
-  availProps.forEach(p=>{
-    h += '<div class="checkrow"><input type="checkbox" data-propchk="'+p.id+'" '+(propIds.includes(p.id)?'checked':'')+'>'+
-      '<span>'+esc(p.item||'(unnamed)')+' × '+esc(p.qty)+(p.comments?' — '+esc(p.comments):'')+'</span></div>';
+  // ---- PROPS ----
+  const propsAvail = (P.props||[]).filter(p=>(parseFloat(p.qty)||0)>0);
+  h += '<div class="bf-fld"><label>PROPS ON THIS SCENE</label><div class="inc-list">';
+  const propsIn = propsAvail.filter(p=>propIds.includes(p.id));
+  if(!propsIn.length) h += '<div class="inc-empty">None yet.</div>';
+  propsIn.forEach(p=>{
+    h += '<div class="inc-row"><span>'+esc(p.item||'(unnamed)')+' × '+esc(p.qty)+(p.comments?' — '+esc(p.comments):'')+'</span><button class="xbtn" data-remprop="'+p.id+'">×</button></div>';
   });
-  h += '</div></div>';
+  h += '</div>';
+  const propsOut = propsAvail.filter(p=>!propIds.includes(p.id));
+  h += '<select class="inc-add" data-addprop><option value="">+ Add prop…</option>'+
+    propsOut.map(p=>'<option value="'+p.id+'">'+esc(p.item||'(unnamed)')+' × '+esc(p.qty)+'</option>').join('')+
+    '</select></div>';
 
-  const equipCats = (P.equipment||[]).map(c=>({ c, items:c.items.filter(it=>(parseFloat(it.qty)||0)>0) })).filter(x=>x.items.length);
-  h += '<div class="bf-fld"><label>EQUIPMENT ON THIS SCENE</label><div class="checklist">';
-  if(!equipCats.length) h += '<div class="checkrow" style="color:var(--mid);">No equipment with quantity &gt; 0 yet — add them on the Props &amp; Equipment page.</div>';
-  equipCats.forEach(({c,items})=>{
-    h += '<div class="cc-deptlabel">'+esc(c.name).toUpperCase()+'</div>';
-    items.forEach(it=>{
-      h += '<div class="checkrow"><input type="checkbox" data-equipchk="'+it.id+'" '+(equipIds.includes(it.id)?'checked':'')+'>'+
-        '<span>'+esc(it.model||'(unnamed)')+' × '+esc(it.qty)+(it.comments?' — '+esc(it.comments):'')+'</span></div>';
+  // ---- EQUIPMENT ----
+  h += '<div class="bf-fld"><label>EQUIPMENT ON THIS SCENE</label><div class="inc-list">';
+  let anyEquipIn=false;
+  (P.equipment||[]).forEach(c=>{
+    const iin = c.items.filter(it=>(parseFloat(it.qty)||0)>0 && equipIds.includes(it.id));
+    if(!iin.length) return;
+    anyEquipIn=true;
+    h += '<div class="inc-grouplabel">'+esc(c.name).toUpperCase()+'</div>';
+    iin.forEach(it=>{
+      h += '<div class="inc-row"><span>'+esc(it.model||'(unnamed)')+' × '+esc(it.qty)+(it.comments?' — '+esc(it.comments):'')+'</span><button class="xbtn" data-remequip="'+it.id+'">×</button></div>';
     });
   });
-  h += '</div></div>';
+  if(!anyEquipIn) h += '<div class="inc-empty">None yet.</div>';
+  h += '</div>';
+  h += '<select class="inc-add" data-addequip><option value="">+ Add equipment…</option>';
+  (P.equipment||[]).forEach(c=>{
+    const iout = c.items.filter(it=>(parseFloat(it.qty)||0)>0 && !equipIds.includes(it.id));
+    if(iout.length) h += '<optgroup label="'+esc(c.name)+'">'+iout.map(it=>'<option value="'+it.id+'">'+esc(it.model||'(unnamed)')+' × '+esc(it.qty)+'</option>').join('')+'</optgroup>';
+  });
+  h += '</select></div>';
 
   h += '<div class="bf-two">'+fld('LOCATION (SHOOT)','location',false)+fld('DATE','date',false)+'</div>';
   h += '<div class="bf-two">'+fld('WARDROBE','wardrobe',true)+fld('HAIR / MAKE-UP','hairMakeup',true)+'</div>';
@@ -1159,38 +1199,36 @@ function renderBreakdownForm(){
   $('breakForm').querySelectorAll('[data-bf]').forEach(el=>{
     el.addEventListener('input', e=>{ bd[e.target.dataset.bf] = e.target.value; });
   });
-  $('breakForm').querySelectorAll('[data-castchk]').forEach(cb=>{
-    cb.addEventListener('change', ()=>{
-      let cur = effCastIds(bd, sceneNo).slice();
-      const id = cb.dataset.castchk;
-      if(cb.checked){ if(!cur.includes(id)) cur.push(id); } else { cur = cur.filter(x=>x!==id); }
-      bd.castIds = cur;
+
+  const wireRemove = (attr, effFn, field)=>{
+    $('breakForm').querySelectorAll('[data-'+attr+']').forEach(b=>{
+      b.addEventListener('click', ()=>{
+        let cur = effFn().slice();
+        cur = cur.filter(x=>x!==b.dataset[attr]);
+        bd[field] = cur;
+        renderBreakdownForm();
+      });
     });
-  });
-  $('breakForm').querySelectorAll('[data-crewchk]').forEach(cb=>{
-    cb.addEventListener('change', ()=>{
-      let cur = effCrewIds(bd).slice();
-      const id = cb.dataset.crewchk;
-      if(cb.checked){ if(!cur.includes(id)) cur.push(id); } else { cur = cur.filter(x=>x!==id); }
-      bd.crewIds = cur;
+  };
+  const wireAdd = (attr, effFn, field)=>{
+    const sel = $('breakForm').querySelector('[data-'+attr+']');
+    if(!sel) return;
+    sel.addEventListener('change', e=>{
+      if(!e.target.value) return;
+      let cur = effFn().slice();
+      if(!cur.includes(e.target.value)) cur.push(e.target.value);
+      bd[field] = cur;
+      renderBreakdownForm();
     });
-  });
-  $('breakForm').querySelectorAll('[data-propchk]').forEach(cb=>{
-    cb.addEventListener('change', ()=>{
-      let cur = effPropIds(bd).slice();
-      const id = cb.dataset.propchk;
-      if(cb.checked){ if(!cur.includes(id)) cur.push(id); } else { cur = cur.filter(x=>x!==id); }
-      bd.propIds = cur;
-    });
-  });
-  $('breakForm').querySelectorAll('[data-equipchk]').forEach(cb=>{
-    cb.addEventListener('change', ()=>{
-      let cur = effEquipIds(bd).slice();
-      const id = cb.dataset.equipchk;
-      if(cb.checked){ if(!cur.includes(id)) cur.push(id); } else { cur = cur.filter(x=>x!==id); }
-      bd.equipIds = cur;
-    });
-  });
+  };
+  wireRemove('remcast', ()=>effCastIds(bd, sceneNo), 'castIds');
+  wireAdd('addcast', ()=>effCastIds(bd, sceneNo), 'castIds');
+  wireRemove('remcrew', ()=>effCrewIds(bd), 'crewIds');
+  wireAdd('addcrew', ()=>effCrewIds(bd), 'crewIds');
+  wireRemove('remprop', ()=>effPropIds(bd, sceneNo), 'propIds');
+  wireAdd('addprop', ()=>effPropIds(bd, sceneNo), 'propIds');
+  wireRemove('remequip', ()=>effEquipIds(bd), 'equipIds');
+  wireAdd('addequip', ()=>effEquipIds(bd), 'equipIds');
 }
 function closeBreakdownScene(){
   $('ovBreak').classList.remove('open');
@@ -1262,11 +1300,19 @@ function renderPropsEquipPage(){
     });
   });
 
-  let ph = '<tr><th>Item</th><th style="width:60px;">Qty</th><th>Comments</th><th></th></tr>';
+  let ph = '<tr><th>Item</th><th style="width:60px;">Qty</th><th>Scenes</th><th>Comments</th><th></th></tr>';
+  const scenesForPicker = sceneList();
   (P.props||[]).forEach(p=>{
+    const psc = p.scenes||[];
+    let sel = '<select multiple size="1" data-pscenes="'+p.id+'" class="pscenes">';
+    scenesForPicker.forEach(s=>{
+      sel += '<option value="'+s.scene+'"'+(psc.includes(s.scene)?' selected':'')+'>Scene '+s.scene+'</option>';
+    });
+    sel += '</select>';
     ph += '<tr>'+
       '<td><input data-pitem="'+p.id+'" value="'+esc(p.item)+'" placeholder="Prop"></td>'+
       '<td><input type="number" min="0" data-pqty="'+p.id+'" value="'+esc(p.qty)+'"></td>'+
+      '<td>'+sel+'</td>'+
       '<td><input data-pcomm="'+p.id+'" value="'+esc(p.comments)+'" placeholder="Comments"></td>'+
       '<td><button class="xbtn" data-delprop="'+p.id+'">×</button></td></tr>';
   });
@@ -1276,6 +1322,12 @@ function renderPropsEquipPage(){
   });
   $('propsTbl').querySelectorAll('[data-pqty]').forEach(inp=>{
     inp.addEventListener('input', e=>{ const p=P.props.find(x=>x.id===e.target.dataset.pqty); if(p) p.qty=e.target.value; });
+  });
+  $('propsTbl').querySelectorAll('[data-pscenes]').forEach(sel=>{
+    sel.addEventListener('change', e=>{
+      const p=P.props.find(x=>x.id===e.target.dataset.pscenes); if(!p) return;
+      p.scenes = Array.from(e.target.selectedOptions).map(o=>parseInt(o.value,10));
+    });
   });
   $('propsTbl').querySelectorAll('[data-pcomm]').forEach(inp=>{
     inp.addEventListener('input', e=>{ const p=P.props.find(x=>x.id===e.target.dataset.pcomm); if(p) p.comments=e.target.value; });
@@ -1529,7 +1581,7 @@ async function buildPDF(){
     const bd = getBreakdown(sc.scene);
     const cIds = effCastIds(bd, sc.scene);
     const crIds = effCrewIds(bd);
-    const prIds = effPropIds(bd);
+    const prIds = effPropIds(bd, sc.scene);
     const eqIds = effEquipIds(bd);
     const castTxt = (P.cast||[]).filter(c=>cIds.includes(c.id)).map(c=> c.character + (c.actor?' — '+c.actor:'')).join('; ') || '—';
     const crewTxt = [];
@@ -1859,7 +1911,7 @@ $('bAddEquipCat').addEventListener('click', ()=>{
 });
 $('bAddProp').addEventListener('click', ()=>{
   if(!P) return;
-  P.props.push({ id:uid(), item:'', qty:0, comments:'' });
+  P.props.push({ id:uid(), item:'', qty:0, comments:'', scenes:[] });
   renderPropsEquipPage();
 });
 
