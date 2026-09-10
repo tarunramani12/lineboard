@@ -118,11 +118,11 @@
 
   /* ---------- CAST & CREW ---------- */
   .crewwrap{padding:16px 14px 60px; max-width:760px; margin:0 auto;}
-  #castTbl{border-collapse:collapse; width:100%; font-size:12px;}
-  #castTbl th{text-align:left; padding:7px 8px; border-bottom:2px solid var(--ink); font-size:10px; letter-spacing:.05em;}
-  #castTbl td{padding:5px 8px; border-bottom:1px solid var(--grey);}
-  #castTbl input{width:100%; border:none; background:transparent; font-size:12px; padding:3px 2px; font-family:inherit;}
-  #castTbl input:focus{outline:none; border-bottom:1px dashed var(--ink);}
+  #castTbl, #propsTbl{border-collapse:collapse; width:100%; font-size:12px;}
+  #castTbl th, #propsTbl th{text-align:left; padding:7px 8px; border-bottom:2px solid var(--ink); font-size:10px; letter-spacing:.05em;}
+  #castTbl td, #propsTbl td{padding:5px 8px; border-bottom:1px solid var(--grey);}
+  #castTbl input, #propsTbl input{width:100%; border:none; background:transparent; font-size:12px; padding:3px 2px; font-family:inherit;}
+  #castTbl input:focus, #propsTbl input:focus{outline:none; border-bottom:1px dashed var(--ink);}
   #castTbl .tag{font-size:9px; color:var(--mid); font-weight:700; letter-spacing:.04em;}
   .dept{border:2px solid var(--ink); border-radius:6px; margin-bottom:14px; overflow:hidden;}
   .dept .dhead{
@@ -163,12 +163,13 @@
     border-bottom:2px solid var(--ink); padding-bottom:12px; margin-bottom:16px;
   }
   .bf-auto b{color:var(--ink); font-weight:800;}
-  .bf-fld{margin-bottom:14px;}
-  .bf-fld label{display:block; font-size:10.5px; font-weight:800; letter-spacing:.05em; color:var(--mid); margin-bottom:4px;}
+  .bf-fld{margin-bottom:10px;}
+  .bf-fld label{display:block; font-size:10.5px; font-weight:800; letter-spacing:.05em; color:var(--mid); margin-bottom:3px;}
   .bf-fld input, .bf-fld textarea{
-    width:100%; border:2px solid var(--ink); border-radius:5px; padding:8px; font-size:13px; font-family:inherit;
+    width:100%; border:2px solid var(--ink); border-radius:5px; padding:6px; font-size:13px; font-family:inherit;
   }
-  .bf-fld textarea{min-height:52px; resize:vertical;}
+  .bf-fld textarea{min-height:32px; resize:vertical;}
+  .bf-fld textarea.big{min-height:60px;}
   .bf-two{display:flex; gap:10px;}
   .bf-two .bf-fld{flex:1;}
   .checklist{border:2px solid var(--ink); border-radius:6px; padding:4px 0; margin-bottom:8px;}
@@ -311,6 +312,7 @@
     <button class="tab" data-view="vBoard">Shots + Board</button>
     <button class="tab" data-view="vCrew">Cast &amp; Crew</button>
     <button class="tab" data-view="vBreak">Script Breakdown</button>
+    <button class="tab" data-view="vProps">Props &amp; Equipment</button>
   </div>
   <div class="topacts">
     <button class="btn sm" id="bInfo">Info</button>
@@ -392,6 +394,22 @@ I know you're here."></textarea>
   <div class="breakwrap">
     <div id="noBreakProj" class="empty">No script loaded yet.<br>Load a script first to see scenes here.</div>
     <div class="listbox" id="breakList" style="display:none;"></div>
+  </div>
+</div>
+
+<!-- PROPS & EQUIPMENT (page 5) -->
+<div class="view" id="vProps">
+  <div class="crewwrap">
+    <div id="noPropsProj" class="empty">No script loaded yet.<br>Load a script first.</div>
+    <div id="propsBody" style="display:none;">
+      <div class="ptitle">EQUIPMENT</div>
+      <div id="equipCats"></div>
+      <div class="rowbtns" style="margin-top:6px;"><button class="btn sm" id="bAddEquipCat">+ Add category</button></div>
+
+      <div class="ptitle" style="margin-top:24px;">PROPS</div>
+      <div class="listbox" style="margin-bottom:14px;"><table id="propsTbl"></table></div>
+      <div class="rowbtns" style="margin:-14px 0 22px;"><button class="btn sm" id="bAddProp">+ Add prop</button></div>
+    </div>
   </div>
 </div>
 
@@ -612,12 +630,15 @@ function getBreakdown(sceneNo){
   if(!P.breakdown) P.breakdown = {};
   if(!P.breakdown[sceneNo]){
     P.breakdown[sceneNo] = {
-      location:'', date:'', extras:'', wardrobe:'', hairMakeup:'', equipment:'',
-      propsArt:'', soundFx:'', specialFx:'', notes:'', description:'',
-      castIds:null, crewIds:null
+      location:'', date:'', extras:'', wardrobe:'', hairMakeup:'',
+      soundFx:'', specialFx:'', description:'',
+      castIds:null, crewIds:null, equipIds:null, propIds:null
     };
   }
-  return P.breakdown[sceneNo];
+  const bd = P.breakdown[sceneNo];
+  if(bd.equipIds===undefined) bd.equipIds = null;
+  if(bd.propIds===undefined) bd.propIds = null;
+  return bd;
 }
 function defaultCastIdsForScene(sceneNo){
   const [s,e] = sceneLineRange(sceneNo);
@@ -633,6 +654,23 @@ function defaultCrewIdsForScene(){
 }
 function effCastIds(bd, sceneNo){ return bd.castIds !== null ? bd.castIds : defaultCastIdsForScene(sceneNo); }
 function effCrewIds(bd){ return bd.crewIds !== null ? bd.crewIds : defaultCrewIdsForScene(); }
+
+/* ---------- props & equipment defaults ---------- */
+const DEFAULT_EQUIP_CATS = ['Camera','Lenses','Monitors','Lighting','Grip','Audio','Power','Media/Storage','Support'];
+function seedEquipment(){
+  return DEFAULT_EQUIP_CATS.map(name=>({ id: uid(), name, items: [] }));
+}
+function allEquipItems(){
+  const out = [];
+  (P.equipment||[]).forEach(c=> c.items.forEach(it=> out.push({ cat:c.name, catId:c.id, item:it })));
+  return out;
+}
+function defaultEquipIds(){
+  return allEquipItems().filter(x=> (parseFloat(x.item.qty)||0) > 0).map(x=>x.item.id);
+}
+function defaultPropIds(){ return []; } // props are scene-specific, no sensible universal default
+function effEquipIds(bd){ return bd.equipIds !== null ? bd.equipIds : defaultEquipIds(); }
+function effPropIds(bd){ return bd.propIds !== null ? bd.propIds : defaultPropIds(); }
 
 /* ---------- numbering (derived, never editable) ---------- */
 function numbered(){
@@ -697,6 +735,8 @@ function newProject(lines){
     shots: [],
     cast: [],
     crew: seedCrew(),
+    equipment: seedEquipment(),
+    props: [],
     breakdown: {}
   };
   undoStack = []; selShot = null;
@@ -1049,6 +1089,8 @@ function renderBreakdownForm(){
   const bd = getBreakdown(sceneNo);
   const castIds = effCastIds(bd, sceneNo);
   const crewIds = effCrewIds(bd);
+  const equipIds = effEquipIds(bd);
+  const propIds = effPropIds(bd);
 
   let h = '<div class="bf-auto">'+
     '<span><b>'+esc(sc.intext)+'</b></span>'+
@@ -1056,19 +1098,14 @@ function renderBreakdownForm(){
     '<span><b>'+esc(sc.daynight)+'</b></span>'+
     '<span>'+sc.shotCount+' shot'+(sc.shotCount===1?'':'s')+'</span></div>';
 
-  const fld = (label, key, isArea)=>{
+  const fld = (label, key, isArea, big)=>{
     const v = esc(bd[key]||'');
     return '<div class="bf-fld"><label>'+label+'</label>'+
-      (isArea ? '<textarea data-bf="'+key+'">'+v+'</textarea>' : '<input data-bf="'+key+'" value="'+v+'">') +
+      (isArea ? '<textarea class="'+(big?'big':'')+'" data-bf="'+key+'">'+v+'</textarea>' : '<input data-bf="'+key+'" value="'+v+'">') +
       '</div>';
   };
-  h += '<div class="bf-two">'+fld('LOCATION (SHOOT)','location',false)+fld('DATE','date',false)+'</div>';
-  h += fld('DESCRIPTION / SYNOPSIS','description',true);
-  h += fld('EXTRAS','extras',true);
-  h += '<div class="bf-two">'+fld('WARDROBE','wardrobe',true)+fld('HAIR / MAKE-UP','hairMakeup',true)+'</div>';
-  h += '<div class="bf-two">'+fld('EQUIPMENT','equipment',true)+fld('PROPERTIES / ART','propsArt',true)+'</div>';
-  h += '<div class="bf-two">'+fld('SOUND EFFECTS','soundFx',true)+fld('SPECIAL EFFECTS','specialFx',true)+'</div>';
-  h += fld('PRODUCTION NOTES','notes',true);
+
+  h += fld('DESCRIPTION / SYNOPSIS / PRODUCTION NOTES','description',true,true);
 
   h += '<div class="bf-fld"><label>CAST ON THIS SCENE</label><div class="checklist">';
   if(!(P.cast||[]).length) h += '<div class="checkrow" style="color:var(--mid);">No cast added yet — add them on the Cast &amp; Crew page.</div>';
@@ -1089,6 +1126,33 @@ function renderBreakdownForm(){
     });
   });
   h += '</div></div>';
+
+  h += fld('EXTRAS','extras',true);
+
+  const availProps = (P.props||[]).filter(p=>(parseFloat(p.qty)||0)>0);
+  h += '<div class="bf-fld"><label>PROPS ON THIS SCENE</label><div class="checklist">';
+  if(!availProps.length) h += '<div class="checkrow" style="color:var(--mid);">No props with quantity &gt; 0 yet — add them on the Props &amp; Equipment page.</div>';
+  availProps.forEach(p=>{
+    h += '<div class="checkrow"><input type="checkbox" data-propchk="'+p.id+'" '+(propIds.includes(p.id)?'checked':'')+'>'+
+      '<span>'+esc(p.item||'(unnamed)')+' × '+esc(p.qty)+(p.comments?' — '+esc(p.comments):'')+'</span></div>';
+  });
+  h += '</div></div>';
+
+  const equipCats = (P.equipment||[]).map(c=>({ c, items:c.items.filter(it=>(parseFloat(it.qty)||0)>0) })).filter(x=>x.items.length);
+  h += '<div class="bf-fld"><label>EQUIPMENT ON THIS SCENE</label><div class="checklist">';
+  if(!equipCats.length) h += '<div class="checkrow" style="color:var(--mid);">No equipment with quantity &gt; 0 yet — add them on the Props &amp; Equipment page.</div>';
+  equipCats.forEach(({c,items})=>{
+    h += '<div class="cc-deptlabel">'+esc(c.name).toUpperCase()+'</div>';
+    items.forEach(it=>{
+      h += '<div class="checkrow"><input type="checkbox" data-equipchk="'+it.id+'" '+(equipIds.includes(it.id)?'checked':'')+'>'+
+        '<span>'+esc(it.model||'(unnamed)')+' × '+esc(it.qty)+(it.comments?' — '+esc(it.comments):'')+'</span></div>';
+    });
+  });
+  h += '</div></div>';
+
+  h += '<div class="bf-two">'+fld('LOCATION (SHOOT)','location',false)+fld('DATE','date',false)+'</div>';
+  h += '<div class="bf-two">'+fld('WARDROBE','wardrobe',true)+fld('HAIR / MAKE-UP','hairMakeup',true)+'</div>';
+  h += '<div class="bf-two">'+fld('SOUND EFFECTS','soundFx',true)+fld('SPECIAL EFFECTS','specialFx',true)+'</div>';
 
   $('breakForm').innerHTML = h;
 
@@ -1111,11 +1175,117 @@ function renderBreakdownForm(){
       bd.crewIds = cur;
     });
   });
+  $('breakForm').querySelectorAll('[data-propchk]').forEach(cb=>{
+    cb.addEventListener('change', ()=>{
+      let cur = effPropIds(bd).slice();
+      const id = cb.dataset.propchk;
+      if(cb.checked){ if(!cur.includes(id)) cur.push(id); } else { cur = cur.filter(x=>x!==id); }
+      bd.propIds = cur;
+    });
+  });
+  $('breakForm').querySelectorAll('[data-equipchk]').forEach(cb=>{
+    cb.addEventListener('change', ()=>{
+      let cur = effEquipIds(bd).slice();
+      const id = cb.dataset.equipchk;
+      if(cb.checked){ if(!cur.includes(id)) cur.push(id); } else { cur = cur.filter(x=>x!==id); }
+      bd.equipIds = cur;
+    });
+  });
 }
 function closeBreakdownScene(){
   $('ovBreak').classList.remove('open');
   breakSceneNo = null;
   renderBreakdownList();
+}
+
+/* ---------- PROPS & EQUIPMENT page ---------- */
+function renderPropsEquipPage(){
+  if(!P){ $('noPropsProj').style.display='block'; $('propsBody').style.display='none'; return; }
+  $('noPropsProj').style.display='none'; $('propsBody').style.display='block';
+
+  let dh = '';
+  (P.equipment||[]).forEach(c=>{
+    dh += '<div class="dept">'+
+      '<div class="dhead"><input value="'+esc(c.name)+'" data-ecat="'+c.id+'"><button class="xbtn" data-delecat="'+c.id+'" style="border-color:var(--paper);color:var(--paper);">×</button></div>';
+    if(!c.items.length) dh += '<div class="drow" style="color:var(--paper);background:transparent;border-bottom:none;opacity:.55;font-size:11px;padding:8px 10px;">No items yet.</div>';
+    c.items.forEach(it=>{
+      dh += '<div class="drow">'+
+        '<input class="role" value="'+esc(it.model)+'" data-emodel="'+it.id+'" data-ecat2="'+c.id+'" placeholder="Model">'+
+        '<input style="width:52px;flex:0 0 52px;" type="number" min="0" value="'+esc(it.qty)+'" data-eqty="'+it.id+'" data-ecat2="'+c.id+'" placeholder="Qty">'+
+        '<input class="pname" value="'+esc(it.comments)+'" data-ecomm="'+it.id+'" data-ecat2="'+c.id+'" placeholder="Comments">'+
+        '<button class="xbtn" data-delitem="'+it.id+'" data-ecat2="'+c.id+'">×</button></div>';
+    });
+    dh += '<div class="daddrow"><button class="btn sm" data-additem="'+c.id+'">+ Add item</button></div></div>';
+  });
+  $('equipCats').innerHTML = dh;
+
+  $('equipCats').querySelectorAll('[data-ecat]').forEach(inp=>{
+    inp.addEventListener('input', e=>{ const c=P.equipment.find(x=>x.id===e.target.dataset.ecat); if(c) c.name=e.target.value; });
+  });
+  $('equipCats').querySelectorAll('[data-emodel]').forEach(inp=>{
+    inp.addEventListener('input', e=>{
+      const c=P.equipment.find(x=>x.id===e.target.dataset.ecat2); if(!c) return;
+      const it=c.items.find(x=>x.id===e.target.dataset.emodel); if(it) it.model=e.target.value;
+    });
+  });
+  $('equipCats').querySelectorAll('[data-eqty]').forEach(inp=>{
+    inp.addEventListener('input', e=>{
+      const c=P.equipment.find(x=>x.id===e.target.dataset.ecat2); if(!c) return;
+      const it=c.items.find(x=>x.id===e.target.dataset.eqty); if(it) it.qty=e.target.value;
+    });
+  });
+  $('equipCats').querySelectorAll('[data-ecomm]').forEach(inp=>{
+    inp.addEventListener('input', e=>{
+      const c=P.equipment.find(x=>x.id===e.target.dataset.ecat2); if(!c) return;
+      const it=c.items.find(x=>x.id===e.target.dataset.ecomm); if(it) it.comments=e.target.value;
+    });
+  });
+  $('equipCats').querySelectorAll('[data-delitem]').forEach(b=>{
+    b.addEventListener('click', ()=>{
+      const c=P.equipment.find(x=>x.id===b.dataset.ecat2); if(!c) return;
+      c.items = c.items.filter(x=>x.id!==b.dataset.delitem);
+      renderPropsEquipPage();
+    });
+  });
+  $('equipCats').querySelectorAll('[data-additem]').forEach(b=>{
+    b.addEventListener('click', ()=>{
+      const c=P.equipment.find(x=>x.id===b.dataset.additem); if(!c) return;
+      c.items.push({ id:uid(), model:'', qty:0, comments:'' });
+      renderPropsEquipPage();
+    });
+  });
+  $('equipCats').querySelectorAll('[data-delecat]').forEach(b=>{
+    b.addEventListener('click', ()=>{
+      if(!confirm('Remove this whole equipment category?')) return;
+      P.equipment = P.equipment.filter(x=>x.id!==b.dataset.delecat);
+      renderPropsEquipPage();
+    });
+  });
+
+  let ph = '<tr><th>Item</th><th style="width:60px;">Qty</th><th>Comments</th><th></th></tr>';
+  (P.props||[]).forEach(p=>{
+    ph += '<tr>'+
+      '<td><input data-pitem="'+p.id+'" value="'+esc(p.item)+'" placeholder="Prop"></td>'+
+      '<td><input type="number" min="0" data-pqty="'+p.id+'" value="'+esc(p.qty)+'"></td>'+
+      '<td><input data-pcomm="'+p.id+'" value="'+esc(p.comments)+'" placeholder="Comments"></td>'+
+      '<td><button class="xbtn" data-delprop="'+p.id+'">×</button></td></tr>';
+  });
+  $('propsTbl').innerHTML = ph;
+  $('propsTbl').querySelectorAll('[data-pitem]').forEach(inp=>{
+    inp.addEventListener('input', e=>{ const p=P.props.find(x=>x.id===e.target.dataset.pitem); if(p) p.item=e.target.value; });
+  });
+  $('propsTbl').querySelectorAll('[data-pqty]').forEach(inp=>{
+    inp.addEventListener('input', e=>{ const p=P.props.find(x=>x.id===e.target.dataset.pqty); if(p) p.qty=e.target.value; });
+  });
+  $('propsTbl').querySelectorAll('[data-pcomm]').forEach(inp=>{
+    inp.addEventListener('input', e=>{ const p=P.props.find(x=>x.id===e.target.dataset.pcomm); if(p) p.comments=e.target.value; });
+  });
+  $('propsTbl').querySelectorAll('[data-delprop]').forEach(b=>{
+    b.addEventListener('click', ()=>{
+      P.props = P.props.filter(x=>x.id!==b.dataset.delprop);
+      renderPropsEquipPage();
+    });
+  });
 }
 function markSel(){
   document.querySelectorAll('#tbl tr[data-id]').forEach(tr=> tr.classList.toggle('sel', tr.dataset.id===selShot));
@@ -1132,7 +1302,7 @@ function renderAll(){
   if(!P) return;
   $('brandsub').textContent = (P.meta.title||'Untitled') + ' · draft ' + P.meta.draft;
   renderScript(); renderBoard(); markSel();
-  renderCrewPage(); renderBreakdownList();
+  renderCrewPage(); renderBreakdownList(); renderPropsEquipPage();
   $('bDel').disabled = !selShot;
   $('bUndo').disabled = !undoStack.length;
 }
@@ -1359,6 +1529,8 @@ async function buildPDF(){
     const bd = getBreakdown(sc.scene);
     const cIds = effCastIds(bd, sc.scene);
     const crIds = effCrewIds(bd);
+    const prIds = effPropIds(bd);
+    const eqIds = effEquipIds(bd);
     const castTxt = (P.cast||[]).filter(c=>cIds.includes(c.id)).map(c=> c.character + (c.actor?' — '+c.actor:'')).join('; ') || '—';
     const crewTxt = [];
     (P.crew||[]).forEach(d=>{
@@ -1366,28 +1538,35 @@ async function buildPDF(){
       if(names.length) crewTxt.push(d.name+' — '+names.join(', '));
     });
     const crewStr = crewTxt.join('  |  ') || '—';
+    const propTxt = (P.props||[]).filter(p=>prIds.includes(p.id)).map(p=> p.item+' ×'+p.qty).join('; ') || '—';
+    const equipTxtParts = [];
+    (P.equipment||[]).forEach(c=>{
+      const names = c.items.filter(it=>eqIds.includes(it.id)).map(it=> it.model+' ×'+it.qty);
+      if(names.length) equipTxtParts.push(c.name+' — '+names.join(', '));
+    });
+    const equipStr = equipTxtParts.join('  |  ') || '—';
 
     let y = M+20; const colW = (PW-M*2-6)/2;
-    box('LOCATION (SHOOT)', bd.location, M, y, colW, 12);
-    box('DATE', bd.date, M+colW+6, y, colW, 12);
-    y += 16;
-    box('DESCRIPTION / SYNOPSIS', bd.description, M, y, PW-M*2, 16);
-    y += 20;
-    box('CAST', castTxt, M, y, colW, 16);
-    box('EXTRAS', bd.extras, M+colW+6, y, colW, 16);
-    y += 20;
-    box('WARDROBE', bd.wardrobe, M, y, colW, 16);
-    box('HAIR / MAKE-UP', bd.hairMakeup, M+colW+6, y, colW, 16);
-    y += 20;
-    box('EQUIPMENT', bd.equipment, M, y, colW, 16);
-    box('PROPERTIES / ART', bd.propsArt, M+colW+6, y, colW, 16);
-    y += 20;
-    box('SOUND EFFECTS', bd.soundFx, M, y, colW, 16);
-    box('SPECIAL EFFECTS', bd.specialFx, M+colW+6, y, colW, 16);
+    box('DESCRIPTION / SYNOPSIS / PRODUCTION NOTES', bd.description, M, y, PW-M*2, 22);
+    y += 26;
+    box('CAST', castTxt, M, y, PW-M*2, 16);
     y += 20;
     box('CREW', crewStr, M, y, PW-M*2, 18);
     y += 22;
-    box('PRODUCTION NOTES', bd.notes, M, y, PW-M*2, 20);
+    box('EXTRAS', bd.extras, M, y, PW-M*2, 14);
+    y += 18;
+    box('PROPS', propTxt, M, y, PW-M*2, 14);
+    y += 18;
+    box('EQUIPMENT', equipStr, M, y, PW-M*2, 14);
+    y += 18;
+    box('LOCATION (SHOOT)', bd.location, M, y, colW, 12);
+    box('DATE', bd.date, M+colW+6, y, colW, 12);
+    y += 16;
+    box('WARDROBE', bd.wardrobe, M, y, colW, 16);
+    box('HAIR / MAKE-UP', bd.hairMakeup, M+colW+6, y, colW, 16);
+    y += 20;
+    box('SOUND EFFECTS', bd.soundFx, M, y, colW, 16);
+    box('SPECIAL EFFECTS', bd.specialFx, M+colW+6, y, colW, 16);
   }
 
   return doc.output('arraybuffer');
@@ -1485,6 +1664,7 @@ async function openProject(file){
     if(!o || !o.lines || !o.shots) throw new Error('Not a LineBoard project');
     P = o; P.aspect = P.aspect || 1.778; P.meta = P.meta || {draft:0};
     P.cast = P.cast || []; P.crew = P.crew || seedCrew(); P.breakdown = P.breakdown || {};
+    P.equipment = P.equipment || seedEquipment(); P.props = P.props || [];
     syncCastFromScript();
     undoStack=[]; selShot=null;
     $('pasteBlock').style.display='none'; $('scriptBlock').style.display='block';
@@ -1501,6 +1681,7 @@ document.querySelectorAll('.tab').forEach(t=>{
     if(t.dataset.view==='vBoard') renderBoard();
     else if(t.dataset.view==='vCrew') renderCrewPage();
     else if(t.dataset.view==='vBreak') renderBreakdownList();
+    else if(t.dataset.view==='vProps') renderPropsEquipPage();
     else requestAnimationFrame(drawBrackets);
   });
 });
@@ -1523,6 +1704,8 @@ function doClose(){
   $('breakList').style.display = 'none';
   $('ovBreak').classList.remove('open');
   breakSceneNo = null;
+  $('noPropsProj').style.display = 'block';
+  $('propsBody').style.display = 'none';
 }
 async function closeProject(){
   if(!P){ toast('No project open'); return; }
@@ -1669,6 +1852,17 @@ $('bAddDept').addEventListener('click', ()=>{
 });
 $('bBreakDone').addEventListener('click', closeBreakdownScene);
 
+$('bAddEquipCat').addEventListener('click', ()=>{
+  if(!P) return;
+  P.equipment.push({ id:uid(), name:'New Category', items:[] });
+  renderPropsEquipPage();
+});
+$('bAddProp').addEventListener('click', ()=>{
+  if(!P) return;
+  P.props.push({ id:uid(), item:'', qty:0, comments:'' });
+  renderPropsEquipPage();
+});
+
 window.addEventListener('resize', ()=>{ if(P){ drawBrackets(); renderBoard(); } });
 window.addEventListener('beforeunload', e=>{ if(P && P.shots.length){ e.preventDefault(); e.returnValue=''; } });
 
@@ -1682,6 +1876,7 @@ window.addEventListener('beforeunload', e=>{ if(P && P.shots.length){ e.preventD
     if(resume){
       P = snap.project;
       P.cast = P.cast || []; P.crew = P.crew || seedCrew(); P.breakdown = P.breakdown || {};
+    P.equipment = P.equipment || seedEquipment(); P.props = P.props || [];
       P.aspect = P.aspect || 1.778; P.meta = P.meta || {draft:0};
       syncCastFromScript();
       undoStack = []; selShot = null;
