@@ -115,6 +115,68 @@
 
   /* ---------- SHOTS + BOARD ---------- */
   .boardwrap{padding:16px 14px 76px; max-width:1100px; margin:0 auto;}
+
+  /* ---------- CAST & CREW ---------- */
+  .crewwrap{padding:16px 14px 60px; max-width:760px; margin:0 auto;}
+  #castTbl{border-collapse:collapse; width:100%; font-size:12px;}
+  #castTbl th{text-align:left; padding:7px 8px; border-bottom:2px solid var(--ink); font-size:10px; letter-spacing:.05em;}
+  #castTbl td{padding:5px 8px; border-bottom:1px solid var(--grey);}
+  #castTbl input{width:100%; border:none; background:transparent; font-size:12px; padding:3px 2px; font-family:inherit;}
+  #castTbl input:focus{outline:none; border-bottom:1px dashed var(--ink);}
+  #castTbl .tag{font-size:9px; color:var(--mid); font-weight:700; letter-spacing:.04em;}
+  .dept{border:2px solid var(--ink); border-radius:6px; margin-bottom:14px; overflow:hidden;}
+  .dept .dhead{
+    display:flex; justify-content:space-between; align-items:center;
+    padding:8px 10px; background:var(--ink); color:var(--paper);
+    font-size:11px; font-weight:800; letter-spacing:.05em;
+  }
+  .dept .dhead input{
+    background:transparent; border:none; color:var(--paper); font-weight:800;
+    font-size:11px; letter-spacing:.05em; font-family:inherit; flex:1; padding:2px 4px;
+  }
+  .dept .drow{
+    display:flex; gap:8px; align-items:center; padding:6px 10px; border-bottom:1px solid var(--grey); font-size:12px;
+  }
+  .dept .drow:last-of-type{border-bottom:none;}
+  .dept .drow input{border:1px solid var(--grey); border-radius:4px; padding:5px 6px; font-size:12px; font-family:inherit;}
+  .dept .drow input.role{flex:0 0 40%;}
+  .dept .drow input.pname{flex:1;}
+  .dept .drow .xbtn, td .xbtn{
+    border:1.5px solid var(--red); color:var(--red); background:var(--paper);
+    width:20px; height:20px; border-radius:5px; font-size:12px; font-weight:800; line-height:1;
+    display:flex; align-items:center; justify-content:center; flex:0 0 auto;
+  }
+  .dept .daddrow{padding:6px 10px;}
+
+  /* ---------- SCRIPT BREAKDOWN ---------- */
+  .breakwrap{padding:16px 14px 60px; max-width:900px; margin:0 auto;}
+  #breakList table{border-collapse:collapse; width:100%; font-size:12px;}
+  #breakList th{text-align:left; padding:8px 10px; border-bottom:2px solid var(--ink); font-size:10px; letter-spacing:.05em;}
+  #breakList td{padding:8px 10px; border-bottom:1px solid var(--grey); cursor:pointer;}
+  #breakList tr:hover td{background:var(--soft);}
+  #breakList .scn{font-weight:800;}
+  #breakList .hd{color:var(--mid); font-size:11px;}
+  #breakList .cnt{font-weight:700; text-align:right;}
+  .breakform{max-width:640px; margin:0 auto; padding:6px 4px 40px;}
+  .bf-auto{
+    display:flex; gap:18px; flex-wrap:wrap; font-size:11px; color:var(--mid); font-weight:700;
+    border-bottom:2px solid var(--ink); padding-bottom:12px; margin-bottom:16px;
+  }
+  .bf-auto b{color:var(--ink); font-weight:800;}
+  .bf-fld{margin-bottom:14px;}
+  .bf-fld label{display:block; font-size:10.5px; font-weight:800; letter-spacing:.05em; color:var(--mid); margin-bottom:4px;}
+  .bf-fld input, .bf-fld textarea{
+    width:100%; border:2px solid var(--ink); border-radius:5px; padding:8px; font-size:13px; font-family:inherit;
+  }
+  .bf-fld textarea{min-height:52px; resize:vertical;}
+  .bf-two{display:flex; gap:10px;}
+  .bf-two .bf-fld{flex:1;}
+  .checklist{border:2px solid var(--ink); border-radius:6px; padding:4px 0; margin-bottom:8px;}
+  .checkrow{display:flex; align-items:center; gap:8px; padding:6px 10px; font-size:12.5px; border-bottom:1px solid var(--grey);}
+  .checkrow:last-child{border-bottom:none;}
+  .checkrow input[type=checkbox]{width:16px; height:16px; flex:0 0 auto;}
+  .checkrow .dtag{font-size:9.5px; color:var(--mid); font-weight:700;}
+  .cc-deptlabel{font-size:10px; font-weight:800; color:var(--mid); letter-spacing:.05em; padding:6px 10px 2px;}
   .stickybar{
     position:-webkit-sticky; position:sticky; bottom:0; left:0; right:0; width:100%;
     background:var(--paper); border-top:2px solid var(--ink);
@@ -247,10 +309,12 @@
   <div class="tabs">
     <button class="tab active" data-view="vScript">Script</button>
     <button class="tab" data-view="vBoard">Shots + Board</button>
+    <button class="tab" data-view="vCrew">Cast &amp; Crew</button>
+    <button class="tab" data-view="vBreak">Script Breakdown</button>
   </div>
   <div class="topacts">
     <button class="btn sm" id="bInfo">Info</button>
-    <button class="btn sm" id="bLoad">Open</button>
+    <button class="btn sm" id="bLoad">Open Project</button>
     <button class="btn sm primary" id="bSave">Save</button>
     <button class="btn sm danger" id="bClose">Close</button>
   </div>
@@ -269,7 +333,7 @@ MAYA
 I know you're here."></textarea>
     <div class="rowbtns">
       <button class="btn primary" id="bParse">Load script</button>
-      <button class="btn" id="bUpload">Upload file</button>
+      <button class="btn" id="bUpload">Upload Script</button>
       <button class="btn" id="bDemo">Use sample</button>
     </div>
   </div>
@@ -278,7 +342,6 @@ I know you're here."></textarea>
     <div class="scripttools">
       <button class="btn sm" id="bUndo">Undo</button>
       <button class="btn sm danger" id="bDel" disabled>Delete shot</button>
-      <button class="btn sm" id="bReplace">Replace script</button>
     </div>
     <div class="page"><div class="scriptgrid" id="grid"></div></div>
   </div>
@@ -308,6 +371,30 @@ I know you're here."></textarea>
   </div>
 </div>
 
+<!-- CAST & CREW (page 3) -->
+<div class="view" id="vCrew">
+  <div class="crewwrap">
+    <div id="noCrewProj" class="empty">No script loaded yet.<br>Load a script first — cast is detected from it automatically.</div>
+    <div id="crewBody" style="display:none;">
+      <div class="ptitle">CAST</div>
+      <div class="listbox" style="margin-bottom:22px;"><table id="castTbl"></table></div>
+      <div class="rowbtns" style="margin:-14px 0 22px;"><button class="btn sm" id="bAddCast">+ Add cast member</button></div>
+
+      <div class="ptitle">CREW</div>
+      <div id="crewDepts"></div>
+      <div class="rowbtns" style="margin-top:6px;"><button class="btn sm" id="bAddDept">+ Add department</button></div>
+    </div>
+  </div>
+</div>
+
+<!-- SCRIPT BREAKDOWN (page 4) -->
+<div class="view" id="vBreak">
+  <div class="breakwrap">
+    <div id="noBreakProj" class="empty">No script loaded yet.<br>Load a script first to see scenes here.</div>
+    <div class="listbox" id="breakList" style="display:none;"></div>
+  </div>
+</div>
+
 <!-- EDITOR -->
 <div class="ov" id="ov">
   <div class="ovbar">
@@ -330,10 +417,21 @@ I know you're here."></textarea>
   </div></div>
 </div>
 
+<!-- BREAKDOWN SCENE EDITOR -->
+<div class="ov" id="ovBreak">
+  <div class="ovbar">
+    <div class="ovtitle" id="ovBreakTitle">SCENE 1</div>
+    <div class="tools"><button class="tool" style="background:#000;color:#fff;" id="bBreakDone">Done</button></div>
+  </div>
+  <div class="ovbody" style="align-items:flex-start; display:block; overflow:auto;">
+    <div class="breakform" id="breakForm"></div>
+  </div>
+</div>
+
 <!-- INFO MODAL -->
 <div class="mod" id="mod">
   <div class="card">
-    <h3>Project info</h3>
+    <h3 id="modTitle">Project info</h3>
     <div class="fld"><label>TITLE</label><input id="mTitle"></div>
     <div class="fld"><label>PRODUCTION</label><input id="mProd"></div>
     <div class="fld"><label>DIRECTOR</label><input id="mDir"></div>
@@ -381,6 +479,50 @@ const $ = id => document.getElementById(id);
 const uid = () => 's' + Math.random().toString(36).slice(2,9) + Date.now().toString(36).slice(-3);
 function toast(m){ const t=$('toast'); t.textContent=m; t.classList.add('show'); clearTimeout(t._t); t._t=setTimeout(()=>t.classList.remove('show'),2200); }
 function esc(s){ return (s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+
+/* ---------- autosave (IndexedDB) ---------- */
+const AS_DB='lineboard-autosave', AS_STORE='snapshots';
+function idbOpen(){
+  return new Promise((resolve,reject)=>{
+    const req = indexedDB.open(AS_DB, 1);
+    req.onupgradeneeded = ()=>{ req.result.createObjectStore(AS_STORE); };
+    req.onsuccess = ()=> resolve(req.result);
+    req.onerror = ()=> reject(req.error);
+  });
+}
+async function autosaveWrite(){
+  if(!P) return;
+  try{
+    const db = await idbOpen();
+    await new Promise((res,rej)=>{
+      const tx = db.transaction(AS_STORE,'readwrite');
+      tx.objectStore(AS_STORE).put({ project: JSON.parse(JSON.stringify(P)), savedAt: Date.now() }, 'current');
+      tx.oncomplete = res; tx.onerror = ()=>rej(tx.error);
+    });
+  }catch(e){ /* best effort — never interrupt the user over this */ }
+}
+async function autosaveRead(){
+  try{
+    const db = await idbOpen();
+    return await new Promise((res,rej)=>{
+      const tx = db.transaction(AS_STORE,'readonly');
+      const req = tx.objectStore(AS_STORE).get('current');
+      req.onsuccess = ()=> res(req.result || null);
+      req.onerror = ()=> rej(req.error);
+    });
+  }catch(e){ return null; }
+}
+async function autosaveClear(){
+  try{
+    const db = await idbOpen();
+    await new Promise((res,rej)=>{
+      const tx = db.transaction(AS_STORE,'readwrite');
+      tx.objectStore(AS_STORE).delete('current');
+      tx.oncomplete = res; tx.onerror = ()=>rej(tx.error);
+    });
+  }catch(e){ /* ignore */ }
+}
+setInterval(()=>{ if(P) autosaveWrite(); }, 5*60*1000);
 
 /* ---------- script parsing ---------- */
 const HEAD_RE = /^(INT\.?|EXT\.?|EST\.?|INT\.?\/EXT\.?|I\/E\.?)[\s.\-]/i;
@@ -430,6 +572,67 @@ function sceneHeadingText(sceneNo){
   for(const l of P.lines){ if(l.type==='heading'){ s++; if(s===sceneNo) return l.text; } }
   return sceneNo===1 ? 'SCENE 1' : ('SCENE '+sceneNo);
 }
+function sceneLineRange(sceneNo){
+  let cur=0, start=-1, end=(P.lines?P.lines.length:1)-1;
+  for(let i=0;i<P.lines.length;i++){
+    if(P.lines[i].type==='heading'){
+      cur++;
+      if(cur===sceneNo) start=i;
+      else if(cur===sceneNo+1){ end=i-1; break; }
+    }
+  }
+  return [start,end];
+}
+function parseHeading(text){
+  const m = (text||'').match(/^(INT\.?\/EXT\.?|INT\.?|EXT\.?|EST\.?|I\/E\.?)\s*[.\-]?\s*(.*)$/i);
+  let intext='', rest=text||'';
+  if(m){ intext = m[1].toUpperCase().replace(/\.$/,''); rest = m[2]; }
+  let sceneLoc = rest, daynight = '';
+  const idx = rest.lastIndexOf(' - ');
+  if(idx>-1){ sceneLoc = rest.slice(0,idx).trim(); daynight = rest.slice(idx+3).trim(); }
+  return { intext, sceneLoc, daynight };
+}
+function sceneCount(){
+  let c=0; (P.lines||[]).forEach(l=>{ if(l.type==='heading') c++; }); return c;
+}
+function sceneList(){
+  const out = []; let sc=0;
+  (P.lines||[]).forEach((l,i)=>{
+    if(l.type==='heading'){
+      sc++;
+      out.push(Object.assign({ scene:sc, lineIdx:i, text:l.text }, parseHeading(l.text)));
+    }
+  });
+  const counts = {};
+  numbered().forEach(s=> counts[s.scene]=(counts[s.scene]||0)+1);
+  out.forEach(o=> o.shotCount = counts[o.scene]||0);
+  return out;
+}
+function getBreakdown(sceneNo){
+  if(!P.breakdown) P.breakdown = {};
+  if(!P.breakdown[sceneNo]){
+    P.breakdown[sceneNo] = {
+      location:'', date:'', extras:'', wardrobe:'', hairMakeup:'', equipment:'',
+      propsArt:'', soundFx:'', specialFx:'', notes:'', description:'',
+      castIds:null, crewIds:null
+    };
+  }
+  return P.breakdown[sceneNo];
+}
+function defaultCastIdsForScene(sceneNo){
+  const [s,e] = sceneLineRange(sceneNo);
+  if(s<0) return [];
+  const names = new Set();
+  for(let i=s;i<=e;i++){ if(P.lines[i].type==='character') names.add(normName(P.lines[i].text)); }
+  return P.cast.filter(c=>names.has(c.character)).map(c=>c.id);
+}
+function defaultCrewIdsForScene(){
+  const ids = [];
+  (P.crew||[]).forEach(d=>{ if(PRECHECK_DEPTS.includes(d.name)) d.roles.forEach(r=> ids.push(r.id)); });
+  return ids;
+}
+function effCastIds(bd, sceneNo){ return bd.castIds !== null ? bd.castIds : defaultCastIdsForScene(sceneNo); }
+function effCrewIds(bd){ return bd.crewIds !== null ? bd.crewIds : defaultCrewIdsForScene(); }
 
 /* ---------- numbering (derived, never editable) ---------- */
 function numbered(){
@@ -443,6 +646,47 @@ function numbered(){
 }
 function numOf(id){ const n = numbered().find(s=>s.id===id); return n ? n.no : '—'; }
 
+/* ---------- cast & crew defaults ---------- */
+const DEFAULT_DEPTS = [
+  { name:'Direction',      roles:['Director','1st AD','2nd AD'] },
+  { name:'Camera',         roles:['DoP','1st AC','2nd AC'] },
+  { name:'Lights & Grip',  roles:['Gaffer','Assistant Gaffer','Key Grip'] },
+  { name:'Hair',           roles:['Hair Stylist'] },
+  { name:'Makeup',         roles:['Makeup Artist'] },
+  { name:'Wardrobe',       roles:['Costume Designer'] },
+  { name:'DIT',            roles:['DIT'] },
+  { name:'Sound',          roles:['Sound Recordist'] },
+  { name:'Art Dept',       roles:['Art Director'] },
+  { name:'Production',     roles:['Producer','Production Manager'] }
+];
+const PRECHECK_DEPTS = ['Direction','Camera','Lights & Grip','Hair','Makeup','Wardrobe','DIT','Sound'];
+
+function seedCrew(){
+  return DEFAULT_DEPTS.map(d=>({
+    id: uid(), name: d.name,
+    roles: d.roles.map(r=>({ id: uid(), role:r, name:'' }))
+  }));
+}
+function normName(t){ return (t||'').trim().replace(/\s*\([^)]*\)\s*$/,'').trim(); }
+function syncCastFromScript(){
+  if(!P) return;
+  const seen = new Set(); const names = [];
+  (P.lines||[]).forEach(l=>{
+    if(l.type==='character'){
+      const n = normName(l.text);
+      if(n && !seen.has(n)){ seen.add(n); names.push(n); }
+    }
+  });
+  const byName = {};
+  (P.cast||[]).forEach(c=>{ if(c.auto) byName[c.character] = c; });
+  const autoRows = names.map(n=>{
+    const ex = byName[n];
+    return { id: ex ? ex.id : uid(), character:n, actor: ex ? ex.actor : '', auto:true };
+  });
+  const manualRows = (P.cast||[]).filter(c=>!c.auto);
+  P.cast = autoRows.concat(manualRows);
+}
+
 /* ---------- project ---------- */
 function newProject(lines){
   P = {
@@ -450,9 +694,13 @@ function newProject(lines){
     meta:{ title:'', production:'', director:'', dop:'', draft:0 },
     aspect: 1.778,
     lines: lines,
-    shots: []
+    shots: [],
+    cast: [],
+    crew: seedCrew(),
+    breakdown: {}
   };
   undoStack = []; selShot = null;
+  syncCastFromScript();
 }
 function snapshot(){
   undoStack.push(JSON.stringify(P.shots));
@@ -687,6 +935,188 @@ function sheadShort(n){ const t = sceneHeadingText(n); return t.length>40 ? t.sl
 function syncBoxLabels(){
   P.shots.forEach(s=>{ const e = document.querySelector('[data-lbl="'+s.id+'"]'); if(e) e.textContent = s.desc; });
 }
+
+/* ---------- CAST & CREW page ---------- */
+function renderCrewPage(){
+  if(!P){ $('noCrewProj').style.display='block'; $('crewBody').style.display='none'; return; }
+  $('noCrewProj').style.display='none'; $('crewBody').style.display='block';
+
+  let ch = '<tr><th>Character</th><th>Actor</th><th></th></tr>';
+  (P.cast||[]).forEach(c=>{
+    ch += '<tr>'+
+      '<td>'+(c.auto ? esc(c.character) + ' <span class="tag">(script)</span>' :
+        '<input data-id="'+c.id+'" data-f="character" value="'+esc(c.character)+'" placeholder="Character name">') + '</td>'+
+      '<td><input data-id="'+c.id+'" data-f="actor" value="'+esc(c.actor)+'" placeholder="Actor name"></td>'+
+      '<td>'+(c.auto ? '' : '<button class="xbtn" data-delcast="'+c.id+'">×</button>') + '</td></tr>';
+  });
+  $('castTbl').innerHTML = ch;
+  $('castTbl').querySelectorAll('input[data-f]').forEach(inp=>{
+    inp.addEventListener('input', e=>{
+      const row = (P.cast||[]).find(x=>x.id===e.target.dataset.id);
+      if(row) row[e.target.dataset.f] = e.target.value;
+    });
+  });
+  $('castTbl').querySelectorAll('[data-delcast]').forEach(b=>{
+    b.addEventListener('click', ()=>{
+      P.cast = P.cast.filter(x=>x.id!==b.dataset.delcast);
+      renderCrewPage();
+    });
+  });
+
+  let dh = '';
+  (P.crew||[]).forEach(d=>{
+    dh += '<div class="dept">'+
+      '<div class="dhead"><input value="'+esc(d.name)+'" data-dept="'+d.id+'"><button class="xbtn" data-deldept="'+d.id+'" style="border-color:var(--paper);color:var(--paper);">×</button></div>';
+    d.roles.forEach(r=>{
+      dh += '<div class="drow">'+
+        '<input class="role" value="'+esc(r.role)+'" data-role="'+r.id+'" data-dept2="'+d.id+'" placeholder="Role">'+
+        '<input class="pname" value="'+esc(r.name)+'" data-pname="'+r.id+'" data-dept2="'+d.id+'" placeholder="Name">'+
+        '<button class="xbtn" data-delrole="'+r.id+'" data-dept2="'+d.id+'">×</button></div>';
+    });
+    dh += '<div class="daddrow"><button class="btn sm" data-addrole="'+d.id+'">+ Add role</button></div></div>';
+  });
+  $('crewDepts').innerHTML = dh;
+
+  $('crewDepts').querySelectorAll('[data-dept]').forEach(inp=>{
+    inp.addEventListener('input', e=>{
+      const d = P.crew.find(x=>x.id===e.target.dataset.dept); if(d) d.name = e.target.value;
+    });
+  });
+  $('crewDepts').querySelectorAll('[data-role]').forEach(inp=>{
+    inp.addEventListener('input', e=>{
+      const d = P.crew.find(x=>x.id===e.target.dataset.dept2); if(!d) return;
+      const r = d.roles.find(x=>x.id===e.target.dataset.role); if(r) r.role = e.target.value;
+    });
+  });
+  $('crewDepts').querySelectorAll('[data-pname]').forEach(inp=>{
+    inp.addEventListener('input', e=>{
+      const d = P.crew.find(x=>x.id===e.target.dataset.dept2); if(!d) return;
+      const r = d.roles.find(x=>x.id===e.target.dataset.pname); if(r) r.name = e.target.value;
+    });
+  });
+  $('crewDepts').querySelectorAll('[data-delrole]').forEach(b=>{
+    b.addEventListener('click', ()=>{
+      const d = P.crew.find(x=>x.id===b.dataset.dept2); if(!d) return;
+      d.roles = d.roles.filter(r=>r.id!==b.dataset.delrole);
+      renderCrewPage();
+    });
+  });
+  $('crewDepts').querySelectorAll('[data-addrole]').forEach(b=>{
+    b.addEventListener('click', ()=>{
+      const d = P.crew.find(x=>x.id===b.dataset.addrole); if(!d) return;
+      d.roles.push({ id:uid(), role:'', name:'' });
+      renderCrewPage();
+    });
+  });
+  $('crewDepts').querySelectorAll('[data-deldept]').forEach(b=>{
+    b.addEventListener('click', ()=>{
+      if(!confirm('Remove this whole department?')) return;
+      P.crew = P.crew.filter(x=>x.id!==b.dataset.deldept);
+      renderCrewPage();
+    });
+  });
+}
+
+/* ---------- SCRIPT BREAKDOWN page ---------- */
+function renderBreakdownList(){
+  if(!P || !sceneCount()){ $('noBreakProj').style.display='block'; $('breakList').style.display='none'; return; }
+  $('noBreakProj').style.display='none'; $('breakList').style.display='block';
+  let h = '<tr><th>Scene</th><th>Heading</th><th style="text-align:right;">Shots</th></tr>';
+  sceneList().forEach(s=>{
+    h += '<tr data-scene="'+s.scene+'">'+
+      '<td class="scn">'+s.scene+'</td>'+
+      '<td>'+esc(s.intext)+' — '+esc(s.sceneLoc)+' <span class="hd">'+esc(s.daynight)+'</span></td>'+
+      '<td class="cnt">'+s.shotCount+'</td></tr>';
+  });
+  $('breakList').innerHTML = '<table>'+h+'</table>';
+  $('breakList').querySelectorAll('tr[data-scene]').forEach(tr=>{
+    tr.addEventListener('click', ()=> openBreakdownScene(parseInt(tr.dataset.scene,10)));
+  });
+}
+
+let breakSceneNo = null;
+function openBreakdownScene(sceneNo){
+  breakSceneNo = sceneNo;
+  const sc = sceneList().find(s=>s.scene===sceneNo);
+  if(!sc) return;
+  $('ovBreakTitle').textContent = 'SCENE ' + sceneNo;
+  renderBreakdownForm();
+  $('ovBreak').classList.add('open');
+}
+function renderBreakdownForm(){
+  const sceneNo = breakSceneNo;
+  const sc = sceneList().find(s=>s.scene===sceneNo); if(!sc) return;
+  const bd = getBreakdown(sceneNo);
+  const castIds = effCastIds(bd, sceneNo);
+  const crewIds = effCrewIds(bd);
+
+  let h = '<div class="bf-auto">'+
+    '<span><b>'+esc(sc.intext)+'</b></span>'+
+    '<span><b>'+esc(sc.sceneLoc)+'</b></span>'+
+    '<span><b>'+esc(sc.daynight)+'</b></span>'+
+    '<span>'+sc.shotCount+' shot'+(sc.shotCount===1?'':'s')+'</span></div>';
+
+  const fld = (label, key, isArea)=>{
+    const v = esc(bd[key]||'');
+    return '<div class="bf-fld"><label>'+label+'</label>'+
+      (isArea ? '<textarea data-bf="'+key+'">'+v+'</textarea>' : '<input data-bf="'+key+'" value="'+v+'">') +
+      '</div>';
+  };
+  h += '<div class="bf-two">'+fld('LOCATION (SHOOT)','location',false)+fld('DATE','date',false)+'</div>';
+  h += fld('DESCRIPTION / SYNOPSIS','description',true);
+  h += fld('EXTRAS','extras',true);
+  h += '<div class="bf-two">'+fld('WARDROBE','wardrobe',true)+fld('HAIR / MAKE-UP','hairMakeup',true)+'</div>';
+  h += '<div class="bf-two">'+fld('EQUIPMENT','equipment',true)+fld('PROPERTIES / ART','propsArt',true)+'</div>';
+  h += '<div class="bf-two">'+fld('SOUND EFFECTS','soundFx',true)+fld('SPECIAL EFFECTS','specialFx',true)+'</div>';
+  h += fld('PRODUCTION NOTES','notes',true);
+
+  h += '<div class="bf-fld"><label>CAST ON THIS SCENE</label><div class="checklist">';
+  if(!(P.cast||[]).length) h += '<div class="checkrow" style="color:var(--mid);">No cast added yet — add them on the Cast &amp; Crew page.</div>';
+  (P.cast||[]).forEach(c=>{
+    h += '<div class="checkrow"><input type="checkbox" data-castchk="'+c.id+'" '+(castIds.includes(c.id)?'checked':'')+'>'+
+      '<span>'+esc(c.character)+(c.actor?' — '+esc(c.actor):'')+'</span></div>';
+  });
+  h += '</div></div>';
+
+  h += '<div class="bf-fld"><label>CREW ON THIS SCENE</label><div class="checklist">';
+  if(!(P.crew||[]).length) h += '<div class="checkrow" style="color:var(--mid);">No crew added yet — add them on the Cast &amp; Crew page.</div>';
+  (P.crew||[]).forEach(d=>{
+    if(!d.roles.length) return;
+    h += '<div class="cc-deptlabel">'+esc(d.name).toUpperCase()+'</div>';
+    d.roles.forEach(r=>{
+      h += '<div class="checkrow"><input type="checkbox" data-crewchk="'+r.id+'" '+(crewIds.includes(r.id)?'checked':'')+'>'+
+        '<span>'+esc(r.role||'(role)')+(r.name?' — '+esc(r.name):'')+'</span></div>';
+    });
+  });
+  h += '</div></div>';
+
+  $('breakForm').innerHTML = h;
+
+  $('breakForm').querySelectorAll('[data-bf]').forEach(el=>{
+    el.addEventListener('input', e=>{ bd[e.target.dataset.bf] = e.target.value; });
+  });
+  $('breakForm').querySelectorAll('[data-castchk]').forEach(cb=>{
+    cb.addEventListener('change', ()=>{
+      let cur = effCastIds(bd, sceneNo).slice();
+      const id = cb.dataset.castchk;
+      if(cb.checked){ if(!cur.includes(id)) cur.push(id); } else { cur = cur.filter(x=>x!==id); }
+      bd.castIds = cur;
+    });
+  });
+  $('breakForm').querySelectorAll('[data-crewchk]').forEach(cb=>{
+    cb.addEventListener('change', ()=>{
+      let cur = effCrewIds(bd).slice();
+      const id = cb.dataset.crewchk;
+      if(cb.checked){ if(!cur.includes(id)) cur.push(id); } else { cur = cur.filter(x=>x!==id); }
+      bd.crewIds = cur;
+    });
+  });
+}
+function closeBreakdownScene(){
+  $('ovBreak').classList.remove('open');
+  breakSceneNo = null;
+  renderBreakdownList();
+}
 function markSel(){
   document.querySelectorAll('#tbl tr[data-id]').forEach(tr=> tr.classList.toggle('sel', tr.dataset.id===selShot));
   document.querySelectorAll('.box').forEach(b=> b.classList.toggle('sel', b.dataset.id===selShot));
@@ -702,6 +1132,7 @@ function renderAll(){
   if(!P) return;
   $('brandsub').textContent = (P.meta.title||'Untitled') + ' · draft ' + P.meta.draft;
   renderScript(); renderBoard(); markSel();
+  renderCrewPage(); renderBreakdownList();
   $('bDel').disabled = !selShot;
   $('bUndo').disabled = !undoStack.length;
 }
@@ -901,6 +1332,64 @@ async function buildPDF(){
       }
     }
   }
+
+  // ---- Script Breakdown pages: one per scene, appended after shot/board pages ----
+  const scenes2 = sceneList();
+  const box = (label, text, x, y, w, h)=>{
+    doc.setLineWidth(0.4); doc.rect(x, y, w, h);
+    doc.setFont('helvetica','bold'); doc.setFontSize(6.5);
+    doc.text(label, x+2, y+4);
+    doc.setFont('helvetica','normal'); doc.setFontSize(7.5);
+    const lines = doc.splitTextToSize(text||'', w-4);
+    const maxLines = Math.max(1, Math.floor((h-6)/3.6));
+    lines.slice(0,maxLines).forEach((ln,i)=> doc.text(ln, x+2, y+8+i*3.6));
+  };
+  for(const sc of scenes2){
+    doc.addPage();
+    doc.setFont('helvetica','bold'); doc.setFontSize(11);
+    doc.text((P.meta.title||'Untitled'), M, M+2);
+    doc.setFont('helvetica','normal'); doc.setFontSize(7.5);
+    const hdr2 = [P.meta.production, P.meta.director?('Dir: '+P.meta.director):'', P.meta.dop?('DOP: '+P.meta.dop):'', 'Draft '+P.meta.draft].filter(Boolean).join('   ·   ');
+    doc.text(hdr2, M, M+6.5);
+    doc.setLineWidth(0.5); doc.line(M, M+8.5, PW-M, M+8.5);
+
+    doc.setFont('helvetica','bold'); doc.setFontSize(10);
+    doc.text('BREAKDOWN — SCENE '+sc.scene+'  ('+sc.intext+' · '+sc.sceneLoc+' · '+sc.daynight+')', M, M+15);
+
+    const bd = getBreakdown(sc.scene);
+    const cIds = effCastIds(bd, sc.scene);
+    const crIds = effCrewIds(bd);
+    const castTxt = (P.cast||[]).filter(c=>cIds.includes(c.id)).map(c=> c.character + (c.actor?' — '+c.actor:'')).join('; ') || '—';
+    const crewTxt = [];
+    (P.crew||[]).forEach(d=>{
+      const names = d.roles.filter(r=>crIds.includes(r.id)).map(r=> r.role + (r.name?': '+r.name:''));
+      if(names.length) crewTxt.push(d.name+' — '+names.join(', '));
+    });
+    const crewStr = crewTxt.join('  |  ') || '—';
+
+    let y = M+20; const colW = (PW-M*2-6)/2;
+    box('LOCATION (SHOOT)', bd.location, M, y, colW, 12);
+    box('DATE', bd.date, M+colW+6, y, colW, 12);
+    y += 16;
+    box('DESCRIPTION / SYNOPSIS', bd.description, M, y, PW-M*2, 16);
+    y += 20;
+    box('CAST', castTxt, M, y, colW, 16);
+    box('EXTRAS', bd.extras, M+colW+6, y, colW, 16);
+    y += 20;
+    box('WARDROBE', bd.wardrobe, M, y, colW, 16);
+    box('HAIR / MAKE-UP', bd.hairMakeup, M+colW+6, y, colW, 16);
+    y += 20;
+    box('EQUIPMENT', bd.equipment, M, y, colW, 16);
+    box('PROPERTIES / ART', bd.propsArt, M+colW+6, y, colW, 16);
+    y += 20;
+    box('SOUND EFFECTS', bd.soundFx, M, y, colW, 16);
+    box('SPECIAL EFFECTS', bd.specialFx, M+colW+6, y, colW, 16);
+    y += 20;
+    box('CREW', crewStr, M, y, PW-M*2, 18);
+    y += 22;
+    box('PRODUCTION NOTES', bd.notes, M, y, PW-M*2, 20);
+  }
+
   return doc.output('arraybuffer');
 }
 
@@ -979,6 +1468,7 @@ async function saveProject(){
       toast('Saved without PDF: ' + err.message);
     }
     dl(zip(files), base + '.zip');
+    autosaveClear();
     renderAll();
     toast('Saved — draft ' + P.meta.draft);
   }catch(e){
@@ -994,6 +1484,8 @@ async function openProject(file){
     const o = JSON.parse(txt);
     if(!o || !o.lines || !o.shots) throw new Error('Not a LineBoard project');
     P = o; P.aspect = P.aspect || 1.778; P.meta = P.meta || {draft:0};
+    P.cast = P.cast || []; P.crew = P.crew || seedCrew(); P.breakdown = P.breakdown || {};
+    syncCastFromScript();
     undoStack=[]; selShot=null;
     $('pasteBlock').style.display='none'; $('scriptBlock').style.display='block';
     renderAll(); toast('Opened draft ' + P.meta.draft);
@@ -1006,7 +1498,10 @@ document.querySelectorAll('.tab').forEach(t=>{
     document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));
     document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
     t.classList.add('active'); $(t.dataset.view).classList.add('active');
-    if(t.dataset.view==='vBoard') renderBoard(); else requestAnimationFrame(drawBrackets);
+    if(t.dataset.view==='vBoard') renderBoard();
+    else if(t.dataset.view==='vCrew') renderCrewPage();
+    else if(t.dataset.view==='vBreak') renderBreakdownList();
+    else requestAnimationFrame(drawBrackets);
   });
 });
 
@@ -1022,9 +1517,16 @@ function doClose(){
   $('brandsub').textContent = 'no project';
   $('noShots').style.display = 'block';
   $('splitWrap').style.display = 'none';
+  $('noCrewProj').style.display = 'block';
+  $('crewBody').style.display = 'none';
+  $('noBreakProj').style.display = 'block';
+  $('breakList').style.display = 'none';
+  $('ovBreak').classList.remove('open');
+  breakSceneNo = null;
 }
-function closeProject(){
+async function closeProject(){
   if(!P){ toast('No project open'); return; }
+  await autosaveWrite();
   const ok = confirm('Close this project?\n\nMake sure you already saved — closing does not save automatically, and anything since your last Save will be lost.');
   if(!ok) return;
   doClose();
@@ -1035,15 +1537,10 @@ $('bClose').addEventListener('click', closeProject);
 $('bParse').addEventListener('click', ()=>{
   const txt = $('scriptIn').value.trim();
   if(!txt){ toast('Paste a script first'); return; }
-  const lines = parseScript(txt);
-  if(P){
-    // re-entering script text for an existing project: keep title/production/director/dop/aspect/draft
-    P.lines = lines; P.shots = []; undoStack = []; selShot = null;
-  } else {
-    newProject(lines);
-  }
-  $('pasteBlock').style.display='none'; $('scriptBlock').style.display='block';
-  renderAll();
+  const ok = confirm('Are you sure this is the final version of the script?\n\nOnce loaded, the script can\'t be edited or replaced — you\'d need to close this project and start a new one to use a different script.');
+  if(!ok) return;
+  pendingLoad = { lines: parseScript(txt) };
+  openInfoForNewProject();
 });
 $('bUpload').addEventListener('click', ()=> $('fileScript').click());
 $('fileScript').addEventListener('change', e=>{
@@ -1071,19 +1568,15 @@ EXT. TREELINE - CONTINUOUS
 
 Headlights sweep the pines. Two figures move between the trunks, unhurried.`;
 });
-$('bReplace').addEventListener('click', ()=>{
-  if(!confirm('Replace the script? Shots are tied to line positions and will be cleared.')) return;
-  $('pasteBlock').style.display='block'; $('scriptBlock').style.display='none';
-  $('scriptIn').value = P.lines.map(l=>l.text).join('\n');
-});
 $('bUndo').addEventListener('click', undo);
 $('bDel').addEventListener('click', ()=>delShot());
 $('bUndo2').addEventListener('click', undo);
 $('bDel2').addEventListener('click', ()=>delShotConfirm());
 
 $('bSave').addEventListener('click', saveProject);
-$('bLoad').addEventListener('click', ()=>{
+$('bLoad').addEventListener('click', async ()=>{
   if(P){
+    await autosaveWrite();
     const ok = confirm('A project is already open ("'+(P.meta.title||'Untitled')+'").\n\nClose it first? Make sure you already saved — anything since your last Save will be lost.');
     if(!ok) return;
     doClose();
@@ -1093,22 +1586,41 @@ $('bLoad').addEventListener('click', ()=>{
 $('fileOpen').addEventListener('change', e=>{ if(e.target.files[0]) openProject(e.target.files[0]); e.target.value=''; });
 
 /* info modal */
+let pendingLoad = null; // { lines } while a fresh script load is waiting on the Info form
 function openInfo(){
   if(!P) return;
+  $('modTitle').textContent = 'Project info';
+  $('mOk').textContent = 'Save info';
   $('mTitle').value=P.meta.title||''; $('mProd').value=P.meta.production||'';
   $('mDir').value=P.meta.director||''; $('mDop').value=P.meta.dop||'';
   $('mAspect').value=String(P.aspect); $('mDraft').value=P.meta.draft;
   $('mod').classList.add('open');
 }
+function openInfoForNewProject(){
+  $('modTitle').textContent = 'New project — enter details';
+  $('mOk').textContent = 'Load script';
+  $('mTitle').value=''; $('mProd').value=''; $('mDir').value=''; $('mDop').value='';
+  $('mAspect').value='1.778'; $('mDraft').value='0';
+  $('mod').classList.add('open');
+}
 $('bInfo').addEventListener('click', openInfo);
-$('mCancel').addEventListener('click', ()=> $('mod').classList.remove('open'));
+$('mCancel').addEventListener('click', ()=>{
+  pendingLoad = null;
+  $('mod').classList.remove('open');
+});
 $('mOk').addEventListener('click', ()=>{
-  P.meta.title=$('mTitle').value.trim();
+  const title = $('mTitle').value.trim();
+  if(!title){ toast('Add a title before continuing'); $('mTitle').focus(); return; }
+  const wasPending = !!pendingLoad;
+  if(pendingLoad){ newProject(pendingLoad.lines); pendingLoad = null; }
+  P.meta.title=title;
   P.meta.production=$('mProd').value.trim();
   P.meta.director=$('mDir').value.trim();
   P.meta.dop=$('mDop').value.trim();
   P.aspect=parseFloat($('mAspect').value)||1.778;
-  $('mod').classList.remove('open'); renderAll();
+  $('mod').classList.remove('open');
+  if(wasPending){ $('pasteBlock').style.display='none'; $('scriptBlock').style.display='block'; }
+  renderAll();
 });
 
 /* editor wiring */
@@ -1145,8 +1657,42 @@ $('cv') && (()=>{
   c.addEventListener('pointerleave', strokeEnd);
 })();
 
+$('bAddCast').addEventListener('click', ()=>{
+  if(!P) return;
+  P.cast.push({ id:uid(), character:'', actor:'', auto:false });
+  renderCrewPage();
+});
+$('bAddDept').addEventListener('click', ()=>{
+  if(!P) return;
+  P.crew.push({ id:uid(), name:'New Department', roles:[{ id:uid(), role:'', name:'' }] });
+  renderCrewPage();
+});
+$('bBreakDone').addEventListener('click', closeBreakdownScene);
+
 window.addEventListener('resize', ()=>{ if(P){ drawBrackets(); renderBoard(); } });
 window.addEventListener('beforeunload', e=>{ if(P && P.shots.length){ e.preventDefault(); e.returnValue=''; } });
+
+(async function checkAutosaveOnLoad(){
+  try{
+    const snap = await autosaveRead();
+    if(!snap || !snap.project) return;
+    const title = (snap.project.meta && snap.project.meta.title) || 'Untitled';
+    const when = new Date(snap.savedAt).toLocaleString();
+    const resume = confirm('Unsaved work found from your last session:\n\n"'+title+'" — autosaved '+when+'\n\nResume it? (Cancel discards it and starts fresh.)');
+    if(resume){
+      P = snap.project;
+      P.cast = P.cast || []; P.crew = P.crew || seedCrew(); P.breakdown = P.breakdown || {};
+      P.aspect = P.aspect || 1.778; P.meta = P.meta || {draft:0};
+      syncCastFromScript();
+      undoStack = []; selShot = null;
+      $('pasteBlock').style.display='none'; $('scriptBlock').style.display='block';
+      renderAll();
+      toast('Resumed from autosave');
+    } else {
+      await autosaveClear();
+    }
+  }catch(e){ /* best effort */ }
+})();
 </script>
 </body>
 </html>
