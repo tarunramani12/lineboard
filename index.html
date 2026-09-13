@@ -661,7 +661,13 @@ function defaultCrewIdsForScene(){
   return (P.crew||[]).filter(d=>PRECHECK_DEPTS.includes(d.name)).map(d=>d.id);
 }
 function effCastIds(bd, sceneNo){ return bd.castIds !== null ? bd.castIds : defaultCastIdsForScene(sceneNo); }
-function effCrewIds(bd){ return bd.crewIds !== null ? bd.crewIds : defaultCrewIdsForScene(); }
+function effCrewIds(bd){
+  if(bd.crewIds === null) return defaultCrewIdsForScene();
+  const deptIds = new Set((P.crew||[]).map(d=>d.id));
+  const cleaned = bd.crewIds.filter(id=>deptIds.has(id));
+  if(!cleaned.length && bd.crewIds.length) return defaultCrewIdsForScene(); // stale/legacy data, not a deliberate empty selection
+  return cleaned;
+}
 
 /* ---------- props & equipment defaults ---------- */
 const DEFAULT_EQUIP_CATS = ['Camera','Lenses','Monitors','Lighting','Grip','Audio','Power','Media/Storage','Support'];
@@ -1624,6 +1630,90 @@ async function buildPDF(){
     y += 20;
     box('SOUND EFFECTS', bd.soundFx, M, y, colW, 16);
     box('SPECIAL EFFECTS', bd.specialFx, M+colW+6, y, colW, 16);
+  }
+
+  // ---- Master lists (Props / Cast / Equipment) — for sending to vendors ----
+  const drawHeader = (title)=>{
+    doc.setFont('helvetica','bold'); doc.setFontSize(11);
+    doc.text((P.meta.title||'Untitled'), M, M+2);
+    doc.setFont('helvetica','normal'); doc.setFontSize(7.5);
+    const hdr = [P.meta.production, P.meta.director?('Dir: '+P.meta.director):'', P.meta.dop?('DOP: '+P.meta.dop):'', 'Draft '+P.meta.draft].filter(Boolean).join('   ·   ');
+    doc.text(hdr, M, M+6.5);
+    doc.setLineWidth(0.5); doc.line(M, M+8.5, PW-M, M+8.5);
+    doc.setFont('helvetica','bold'); doc.setFontSize(10);
+    doc.text(title, M, M+15);
+  };
+
+  doc.addPage();
+  drawHeader('PROPS — FULL LIST');
+  {
+    let y = M+21;
+    const cols = [ {label:'ITEM', x:M+1}, {label:'QTY', x:M+70}, {label:'SCENES', x:M+90}, {label:'COMMENTS', x:M+130} ];
+    doc.setFont('helvetica','bold'); doc.setFontSize(7);
+    cols.forEach(c=> doc.text(c.label, c.x, y));
+    y += 1.5; doc.setLineWidth(0.3); doc.line(M, y, PW-M, y); y += 4;
+    doc.setFont('helvetica','normal'); doc.setFontSize(8);
+    const rows = (P.props||[]);
+    if(!rows.length) doc.text('None added.', M+1, y);
+    rows.forEach(p=>{
+      if(y > PH-M-6){ doc.addPage(); drawHeader('PROPS — FULL LIST'); y=M+21;
+        doc.setFont('helvetica','bold'); doc.setFontSize(7); cols.forEach(c=> doc.text(c.label,c.x,y));
+        y+=1.5; doc.line(M,y,PW-M,y); y+=4; doc.setFont('helvetica','normal'); doc.setFontSize(8); }
+      doc.text(doc.splitTextToSize(p.item||'', 66)[0]||'', M+1, y);
+      doc.text(String(p.qty||0), M+70, y);
+      doc.text(doc.splitTextToSize((p.scenes||[]).join(', '), 38)[0]||'', M+90, y);
+      doc.text(doc.splitTextToSize(p.comments||'', 55)[0]||'', M+130, y);
+      y += 5;
+    });
+  }
+
+  doc.addPage();
+  drawHeader('CAST — FULL LIST');
+  {
+    let y = M+21;
+    const cols = [ {label:'CHARACTER', x:M+1}, {label:'ACTOR', x:M+85} ];
+    doc.setFont('helvetica','bold'); doc.setFontSize(7);
+    cols.forEach(c=> doc.text(c.label, c.x, y));
+    y += 1.5; doc.setLineWidth(0.3); doc.line(M, y, PW-M, y); y += 4;
+    doc.setFont('helvetica','normal'); doc.setFontSize(8);
+    const rows = (P.cast||[]);
+    if(!rows.length) doc.text('None added.', M+1, y);
+    rows.forEach(c=>{
+      if(y > PH-M-6){ doc.addPage(); drawHeader('CAST — FULL LIST'); y=M+21;
+        doc.setFont('helvetica','bold'); doc.setFontSize(7); cols.forEach(cc=> doc.text(cc.label,cc.x,y));
+        y+=1.5; doc.line(M,y,PW-M,y); y+=4; doc.setFont('helvetica','normal'); doc.setFontSize(8); }
+      doc.text(doc.splitTextToSize(c.character||'', 80)[0]||'', M+1, y);
+      doc.text(doc.splitTextToSize(c.actor||'', 100)[0]||'', M+85, y);
+      y += 5;
+    });
+  }
+
+  doc.addPage();
+  drawHeader('EQUIPMENT — FULL LIST');
+  {
+    let y = M+21;
+    const cols = [ {label:'CATEGORY', x:M+1}, {label:'MODEL', x:M+40}, {label:'QTY', x:M+110}, {label:'COMMENTS', x:M+128} ];
+    const printHead = ()=>{
+      doc.setFont('helvetica','bold'); doc.setFontSize(7);
+      cols.forEach(c=> doc.text(c.label, c.x, y));
+      y += 1.5; doc.setLineWidth(0.3); doc.line(M, y, PW-M, y); y += 4;
+      doc.setFont('helvetica','normal'); doc.setFontSize(8);
+    };
+    printHead();
+    const allRows = [];
+    (P.equipment||[]).forEach(cat=>{
+      if(!cat.items.length){ allRows.push([cat.name,'(no items)','','']); return; }
+      cat.items.forEach(it=> allRows.push([cat.name, it.model, String(it.qty||0), it.comments]));
+    });
+    if(!allRows.length) doc.text('None added.', M+1, y);
+    allRows.forEach(row=>{
+      if(y > PH-M-6){ doc.addPage(); drawHeader('EQUIPMENT — FULL LIST'); y=M+21; printHead(); }
+      doc.text(doc.splitTextToSize(row[0]||'', 36)[0]||'', M+1, y);
+      doc.text(doc.splitTextToSize(row[1]||'', 66)[0]||'', M+40, y);
+      doc.text(row[2]||'', M+110, y);
+      doc.text(doc.splitTextToSize(row[3]||'', 55)[0]||'', M+128, y);
+      y += 5;
+    });
   }
 
   return doc.output('arraybuffer');
