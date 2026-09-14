@@ -1484,14 +1484,25 @@ function flatten(s){
 }
 
 /* ---------- PDF ---------- */
-async function buildPDF(){
+function pdfPageHeader(doc, M, PW, title){
+  doc.setFont('helvetica','bold'); doc.setFontSize(11);
+  doc.text((P.meta.title||'Untitled'), M, M+2);
+  doc.setFont('helvetica','normal'); doc.setFontSize(7.5);
+  const hdr = [P.meta.production, P.meta.director?('Dir: '+P.meta.director):'', P.meta.dop?('DOP: '+P.meta.dop):'', 'Draft '+P.meta.draft].filter(Boolean).join('   ·   ');
+  doc.text(hdr, M, M+6.5);
+  doc.setLineWidth(0.5); doc.line(M, M+8.5, PW-M, M+8.5);
+  if(title){
+    doc.setFont('helvetica','bold'); doc.setFontSize(10);
+    doc.text(title, M, M+15);
+  }
+}
+
+async function buildShotsPDF(){
   if(!window.jspdf) throw new Error('PDF library not loaded (needs internet on first load)');
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF({ unit:'mm', format:'a4', orientation:'portrait' });
   const PW = 210, PH = 297, M = 12;
   const list = numbered();
-
-  // group: scene -> chunks of PER_PAGE
   const byScene = {};
   list.forEach(s=>{ (byScene[s.scene] = byScene[s.scene] || []).push(s); });
   const scenes = Object.keys(byScene).map(Number).sort((a,b)=>a-b);
@@ -1502,19 +1513,8 @@ async function buildPDF(){
     for(let c=0;c<shots.length;c+=PER_PAGE){
       const chunk = shots.slice(c, c+PER_PAGE);
       if(!first) doc.addPage(); first = false;
+      pdfPageHeader(doc, M, PW, 'SCENE '+sc+' — '+sceneHeadingText(sc).slice(0,60));
 
-      // header
-      doc.setFont('helvetica','bold'); doc.setFontSize(11);
-      doc.text((P.meta.title||'Untitled'), M, M+2);
-      doc.setFont('helvetica','normal'); doc.setFontSize(7.5);
-      const hdr = [P.meta.production, P.meta.director?('Dir: '+P.meta.director):'', P.meta.dop?('DOP: '+P.meta.dop):'', 'Draft '+P.meta.draft].filter(Boolean).join('   ·   ');
-      doc.text(hdr, M, M+6.5);
-      doc.setDrawColor(0); doc.setLineWidth(0.5); doc.line(M, M+8.5, PW-M, M+8.5);
-
-      doc.setFont('helvetica','bold'); doc.setFontSize(9);
-      doc.text('SCENE '+sc+' — '+sceneHeadingText(sc).slice(0,60), M, M+14);
-
-      // shot list block
       let y = M+19;
       doc.setFontSize(7); doc.setFont('helvetica','bold');
       doc.text('SHOT', M+1, y); doc.text('DESCRIPTION / COMMENT', M+16, y); doc.text('TYPE', PW-M-26, y);
@@ -1530,7 +1530,6 @@ async function buildPDF(){
       });
       y += 2; doc.setLineWidth(0.5); doc.line(M, y, PW-M, y); y += 6;
 
-      // board grid 2 x 3
       const gw = (PW - M*2 - 6) / 2;
       const ih = gw / P.aspect;
       const cellH = ih + 7;
@@ -1551,8 +1550,14 @@ async function buildPDF(){
       }
     }
   }
+  return doc.output('arraybuffer');
+}
 
-  // ---- Script Breakdown pages: one per scene, appended after shot/board pages ----
+async function buildBreakdownPDF(){
+  if(!window.jspdf) throw new Error('PDF library not loaded (needs internet on first load)');
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ unit:'mm', format:'a4', orientation:'portrait' });
+  const PW = 210, PH = 297, M = 12;
   const scenes2 = sceneList();
   const box = (label, text, x, y, w, h)=>{
     doc.setLineWidth(0.4); doc.rect(x, y, w, h);
@@ -1577,17 +1582,11 @@ async function buildPDF(){
     (items.length?items:['—']).forEach(item=> allLines = allLines.concat(doc.splitTextToSize(item, w-4)));
     allLines.forEach((ln,i)=> doc.text(ln, x+2, y+8+i*3.6));
   };
-  for(const sc of scenes2){
-    doc.addPage();
-    doc.setFont('helvetica','bold'); doc.setFontSize(11);
-    doc.text((P.meta.title||'Untitled'), M, M+2);
-    doc.setFont('helvetica','normal'); doc.setFontSize(7.5);
-    const hdr2 = [P.meta.production, P.meta.director?('Dir: '+P.meta.director):'', P.meta.dop?('DOP: '+P.meta.dop):'', 'Draft '+P.meta.draft].filter(Boolean).join('   ·   ');
-    doc.text(hdr2, M, M+6.5);
-    doc.setLineWidth(0.5); doc.line(M, M+8.5, PW-M, M+8.5);
 
-    doc.setFont('helvetica','bold'); doc.setFontSize(10);
-    doc.text('BREAKDOWN — SCENE '+sc.scene+'  ('+sc.intext+' · '+sc.sceneLoc+' · '+sc.daynight+')', M, M+15);
+  let first = true;
+  for(const sc of scenes2){
+    if(!first) doc.addPage(); first = false;
+    pdfPageHeader(doc, M, PW, 'BREAKDOWN — SCENE '+sc.scene+'  ('+sc.intext+' · '+sc.sceneLoc+' · '+sc.daynight+')');
 
     const bd = getBreakdown(sc.scene);
     const cIds = effCastIds(bd, sc.scene);
@@ -1631,34 +1630,86 @@ async function buildPDF(){
     box('SOUND EFFECTS', bd.soundFx, M, y, colW, 16);
     box('SPECIAL EFFECTS', bd.specialFx, M+colW+6, y, colW, 16);
   }
+  return doc.output('arraybuffer');
+}
 
-  // ---- Master lists (Props / Cast / Equipment) — for sending to vendors ----
-  const drawHeader = (title)=>{
-    doc.setFont('helvetica','bold'); doc.setFontSize(11);
-    doc.text((P.meta.title||'Untitled'), M, M+2);
-    doc.setFont('helvetica','normal'); doc.setFontSize(7.5);
-    const hdr = [P.meta.production, P.meta.director?('Dir: '+P.meta.director):'', P.meta.dop?('DOP: '+P.meta.dop):'', 'Draft '+P.meta.draft].filter(Boolean).join('   ·   ');
-    doc.text(hdr, M, M+6.5);
-    doc.setLineWidth(0.5); doc.line(M, M+8.5, PW-M, M+8.5);
-    doc.setFont('helvetica','bold'); doc.setFontSize(10);
-    doc.text(title, M, M+15);
-  };
+async function buildCastCrewPDF(){
+  if(!window.jspdf) throw new Error('PDF library not loaded (needs internet on first load)');
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ unit:'mm', format:'a4', orientation:'portrait' });
+  const PW = 210, PH = 297, M = 12;
+
+  pdfPageHeader(doc, M, PW, 'CAST — FULL LIST');
+  {
+    let y = M+21;
+    const cols = [ {label:'CHARACTER', x:M+1}, {label:'ACTOR', x:M+85} ];
+    const printHead = ()=>{
+      doc.setFont('helvetica','bold'); doc.setFontSize(7);
+      cols.forEach(c=> doc.text(c.label, c.x, y));
+      y += 1.5; doc.setLineWidth(0.3); doc.line(M, y, PW-M, y); y += 4;
+      doc.setFont('helvetica','normal'); doc.setFontSize(8);
+    };
+    printHead();
+    const rows = (P.cast||[]);
+    if(!rows.length) doc.text('None added.', M+1, y);
+    rows.forEach(c=>{
+      if(y > PH-M-6){ doc.addPage(); pdfPageHeader(doc, M, PW, 'CAST — FULL LIST'); y=M+21; printHead(); }
+      doc.text(doc.splitTextToSize(c.character||'', 80)[0]||'', M+1, y);
+      doc.text(doc.splitTextToSize(c.actor||'', 100)[0]||'', M+85, y);
+      y += 5;
+    });
+  }
 
   doc.addPage();
-  drawHeader('PROPS — FULL LIST');
+  pdfPageHeader(doc, M, PW, 'CREW — FULL LIST');
+  {
+    let y = M+21;
+    const cols = [ {label:'DEPARTMENT', x:M+1}, {label:'ROLE', x:M+45}, {label:'NAME', x:M+110} ];
+    const printHead = ()=>{
+      doc.setFont('helvetica','bold'); doc.setFontSize(7);
+      cols.forEach(c=> doc.text(c.label, c.x, y));
+      y += 1.5; doc.setLineWidth(0.3); doc.line(M, y, PW-M, y); y += 4;
+      doc.setFont('helvetica','normal'); doc.setFontSize(8);
+    };
+    printHead();
+    const rows = [];
+    (P.crew||[]).forEach(d=>{
+      if(!d.roles.length){ rows.push([d.name,'(no roles)','']); return; }
+      d.roles.forEach(r=> rows.push([d.name, r.role, r.name]));
+    });
+    if(!rows.length) doc.text('None added.', M+1, y);
+    rows.forEach(row=>{
+      if(y > PH-M-6){ doc.addPage(); pdfPageHeader(doc, M, PW, 'CREW — FULL LIST'); y=M+21; printHead(); }
+      doc.text(doc.splitTextToSize(row[0]||'', 42)[0]||'', M+1, y);
+      doc.text(doc.splitTextToSize(row[1]||'', 62)[0]||'', M+45, y);
+      doc.text(doc.splitTextToSize(row[2]||'', 74)[0]||'', M+110, y);
+      y += 5;
+    });
+  }
+  return doc.output('arraybuffer');
+}
+
+async function buildPropsEquipPDF(){
+  if(!window.jspdf) throw new Error('PDF library not loaded (needs internet on first load)');
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ unit:'mm', format:'a4', orientation:'portrait' });
+  const PW = 210, PH = 297, M = 12;
+
+  pdfPageHeader(doc, M, PW, 'PROPS — FULL LIST');
   {
     let y = M+21;
     const cols = [ {label:'ITEM', x:M+1}, {label:'QTY', x:M+70}, {label:'SCENES', x:M+90}, {label:'COMMENTS', x:M+130} ];
-    doc.setFont('helvetica','bold'); doc.setFontSize(7);
-    cols.forEach(c=> doc.text(c.label, c.x, y));
-    y += 1.5; doc.setLineWidth(0.3); doc.line(M, y, PW-M, y); y += 4;
-    doc.setFont('helvetica','normal'); doc.setFontSize(8);
+    const printHead = ()=>{
+      doc.setFont('helvetica','bold'); doc.setFontSize(7);
+      cols.forEach(c=> doc.text(c.label, c.x, y));
+      y += 1.5; doc.setLineWidth(0.3); doc.line(M, y, PW-M, y); y += 4;
+      doc.setFont('helvetica','normal'); doc.setFontSize(8);
+    };
+    printHead();
     const rows = (P.props||[]);
     if(!rows.length) doc.text('None added.', M+1, y);
     rows.forEach(p=>{
-      if(y > PH-M-6){ doc.addPage(); drawHeader('PROPS — FULL LIST'); y=M+21;
-        doc.setFont('helvetica','bold'); doc.setFontSize(7); cols.forEach(c=> doc.text(c.label,c.x,y));
-        y+=1.5; doc.line(M,y,PW-M,y); y+=4; doc.setFont('helvetica','normal'); doc.setFontSize(8); }
+      if(y > PH-M-6){ doc.addPage(); pdfPageHeader(doc, M, PW, 'PROPS — FULL LIST'); y=M+21; printHead(); }
       doc.text(doc.splitTextToSize(p.item||'', 66)[0]||'', M+1, y);
       doc.text(String(p.qty||0), M+70, y);
       doc.text(doc.splitTextToSize((p.scenes||[]).join(', '), 38)[0]||'', M+90, y);
@@ -1668,28 +1719,7 @@ async function buildPDF(){
   }
 
   doc.addPage();
-  drawHeader('CAST — FULL LIST');
-  {
-    let y = M+21;
-    const cols = [ {label:'CHARACTER', x:M+1}, {label:'ACTOR', x:M+85} ];
-    doc.setFont('helvetica','bold'); doc.setFontSize(7);
-    cols.forEach(c=> doc.text(c.label, c.x, y));
-    y += 1.5; doc.setLineWidth(0.3); doc.line(M, y, PW-M, y); y += 4;
-    doc.setFont('helvetica','normal'); doc.setFontSize(8);
-    const rows = (P.cast||[]);
-    if(!rows.length) doc.text('None added.', M+1, y);
-    rows.forEach(c=>{
-      if(y > PH-M-6){ doc.addPage(); drawHeader('CAST — FULL LIST'); y=M+21;
-        doc.setFont('helvetica','bold'); doc.setFontSize(7); cols.forEach(cc=> doc.text(cc.label,cc.x,y));
-        y+=1.5; doc.line(M,y,PW-M,y); y+=4; doc.setFont('helvetica','normal'); doc.setFontSize(8); }
-      doc.text(doc.splitTextToSize(c.character||'', 80)[0]||'', M+1, y);
-      doc.text(doc.splitTextToSize(c.actor||'', 100)[0]||'', M+85, y);
-      y += 5;
-    });
-  }
-
-  doc.addPage();
-  drawHeader('EQUIPMENT — FULL LIST');
+  pdfPageHeader(doc, M, PW, 'EQUIPMENT — FULL LIST');
   {
     let y = M+21;
     const cols = [ {label:'CATEGORY', x:M+1}, {label:'MODEL', x:M+40}, {label:'QTY', x:M+110}, {label:'COMMENTS', x:M+128} ];
@@ -1707,7 +1737,7 @@ async function buildPDF(){
     });
     if(!allRows.length) doc.text('None added.', M+1, y);
     allRows.forEach(row=>{
-      if(y > PH-M-6){ doc.addPage(); drawHeader('EQUIPMENT — FULL LIST'); y=M+21; printHead(); }
+      if(y > PH-M-6){ doc.addPage(); pdfPageHeader(doc, M, PW, 'EQUIPMENT — FULL LIST'); y=M+21; printHead(); }
       doc.text(doc.splitTextToSize(row[0]||'', 36)[0]||'', M+1, y);
       doc.text(doc.splitTextToSize(row[1]||'', 66)[0]||'', M+40, y);
       doc.text(row[2]||'', M+110, y);
@@ -1715,7 +1745,6 @@ async function buildPDF(){
       y += 5;
     });
   }
-
   return doc.output('arraybuffer');
 }
 
@@ -1787,16 +1816,23 @@ async function saveProject(){
     const json = JSON.stringify(P);
     const base = slug(P.meta.title) + '-d' + P.meta.draft;
     const files = [{ name:'project.json', data:new TextEncoder().encode(json) }];
-    try{
-      const pdf = await buildPDF();
-      files.push({ name: base + '.pdf', data:new Uint8Array(pdf) });
-    }catch(err){
-      toast('Saved without PDF: ' + err.message);
+    const pdfJobs = [
+      { fn: buildShotsPDF,      suffix:'-shots-storyboard.pdf' },
+      { fn: buildBreakdownPDF,  suffix:'-breakdown.pdf' },
+      { fn: buildCastCrewPDF,   suffix:'-cast-crew.pdf' },
+      { fn: buildPropsEquipPDF, suffix:'-props-equipment.pdf' }
+    ];
+    const failed = [];
+    for(const job of pdfJobs){
+      try{
+        const pdf = await job.fn();
+        files.push({ name: base + job.suffix, data:new Uint8Array(pdf) });
+      }catch(err){ failed.push(job.suffix.replace(/^-|\.pdf$/g,'').replace(/-/g,' ')); }
     }
     dl(zip(files), base + '.zip');
     autosaveClear();
     renderAll();
-    toast('Saved — draft ' + P.meta.draft);
+    toast(failed.length ? ('Saved — draft '+P.meta.draft+' (missing: '+failed.join(', ')+')') : ('Saved — draft ' + P.meta.draft));
   }catch(e){
     P.meta.draft = Math.max(0,(P.meta.draft|0)-1);
     toast('Save failed: ' + e.message);
