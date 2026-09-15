@@ -216,6 +216,12 @@
     letter-spacing:.06em; padding:5px 8px;
   }
   .shotno{font-weight:800; font-size:11.5px; white-space:nowrap;}
+  .ordbtns{display:inline-flex; flex-direction:column; margin-left:4px; vertical-align:middle;}
+  .ordbtn{
+    border:none; background:transparent; color:var(--mid); font-size:8px; line-height:1;
+    padding:1px 3px; cursor:pointer;
+  }
+  .ordbtn:active{color:var(--ink);}
   td input.desc{
     width:100%; border:none; background:transparent; font-size:12px; padding:3px 2px;
     border-bottom:1px dashed transparent; font-family:inherit;
@@ -274,7 +280,8 @@
   .tool.on{background:var(--ink); color:var(--paper);}
   .ovbody{flex:1 1 auto; display:flex; align-items:center; justify-content:center; padding:14px; overflow:auto;}
   .stage{position:relative; border:2px solid var(--ink); border-radius:6px; overflow:hidden; background:var(--paper);}
-  .stage img.bg{position:absolute; inset:0; width:100%; height:100%; object-fit:contain;}
+  .layerimg{position:absolute; touch-action:none; pointer-events:none; user-select:none;}
+  .layerimg.layersel{outline:3px solid var(--red); outline-offset:-3px;}
   .stage canvas{position:absolute; inset:0; width:100%; height:100%; touch-action:none;}
 
   /* ---------- MODAL ---------- */
@@ -430,17 +437,17 @@ I know you're here."></textarea>
     <div class="tools">
       <button class="tool on" id="tPen">Pen</button>
       <button class="tool" id="tErase">Eraser</button>
+      <button class="tool" id="tMove">Move</button>
       <button class="tool" id="tUndo">Undo</button>
       <button class="tool" id="tRedo">Redo</button>
       <button class="tool" id="tImg">Image</button>
       <button class="tool" id="tCam">Camera</button>
-      <button class="tool" id="tClrImg">Clear image</button>
+      <button class="tool" id="tClrImg">Delete image</button>
       <button class="tool" id="tClrDraw">Clear drawing</button>
       <button class="tool" id="tClose" style="background:#000;color:#fff;">Done</button>
     </div>
   </div>
   <div class="ovbody"><div class="stage" id="stage">
-    <img class="bg" id="stageBg" alt="">
     <canvas id="cv"></canvas>
   </div></div>
 </div>
@@ -690,13 +697,35 @@ function effPropIds(bd, sceneNo){ return bd.propIds !== null ? bd.propIds : defa
 
 /* ---------- numbering (derived, never editable) ---------- */
 function numbered(){
-  const list = P.shots.slice().sort((a,b)=> a.start-b.start || a.end-b.end);
-  const cnt = {};
-  return list.map(s=>{
-    const sc = sceneOfLine(s.start);
-    cnt[sc] = (cnt[sc]||0)+1;
-    return Object.assign({}, s, { scene: sc, no: sc+'.'+cnt[sc] });
+  const withScene = P.shots.map(s=> Object.assign({}, s, { scene: sceneOfLine(s.start) }));
+  const byScene = {};
+  withScene.forEach(s=> (byScene[s.scene]=byScene[s.scene]||[]).push(s));
+  const scenesSorted = Object.keys(byScene).map(Number).sort((a,b)=>a-b);
+  const result = [];
+  scenesSorted.forEach(sc=>{
+    const arr = byScene[sc];
+    const hasManual = arr.some(s=> s.order!=null);
+    if(hasManual) arr.sort((a,b)=> (a.order??Infinity)-(b.order??Infinity) || a.start-b.start);
+    else arr.sort((a,b)=> a.start-b.start || a.end-b.end);
+    arr.forEach((s,i)=>{ s.no = sc+'.'+(i+1); result.push(s); });
   });
+  return result;
+}
+function moveShot(shotId, dir){
+  const list = numbered();
+  const shot = list.find(s=>s.id===shotId); if(!shot) return;
+  const sceneShots = list.filter(s=>s.scene===shot.scene);
+  const idx = sceneShots.findIndex(s=>s.id===shotId);
+  const swapIdx = idx+dir;
+  if(swapIdx<0 || swapIdx>=sceneShots.length) return;
+  snapshot();
+  const arr = sceneShots.slice();
+  const tmp = arr[idx]; arr[idx]=arr[swapIdx]; arr[swapIdx]=tmp;
+  arr.forEach((s,i)=>{
+    const real = P.shots.find(x=>x.id===s.id);
+    if(real) real.order = i;
+  });
+  renderAll();
 }
 function numOf(id){ const n = numbered().find(s=>s.id===id); return n ? n.no : '—'; }
 
@@ -783,7 +812,7 @@ function descFromRange(a,b){
 function addShot(lineIdx){
   if(P.lines[lineIdx].type==='blank') return;
   snapshot();
-  const s = { id:uid(), start:lineIdx, end:lineIdx, desc:descFromRange(lineIdx,lineIdx), type:'Medium', bg:null, draw:null };
+  const s = { id:uid(), start:lineIdx, end:lineIdx, desc:descFromRange(lineIdx,lineIdx), type:'Medium', images:[], draw:null, thumb:null };
   P.shots.push(s); selShot = s.id;
   renderAll();
 }
@@ -939,7 +968,10 @@ function renderBoard(){
       html += '<tr class="scenehead"><td colspan="4">SCENE '+s.scene+' — '+esc(sheadShort(s.scene))+'</td></tr>';
     }
     html += '<tr data-id="'+s.id+'" class="'+(s.id===selShot?'sel':'')+'">'+
-      '<td><span class="shotno">'+s.no+'</span></td>'+
+      '<td><span class="shotno">'+s.no+'</span><span class="ordbtns">'+
+        '<button class="ordbtn" data-up="'+s.id+'" title="Move up">▲</button>'+
+        '<button class="ordbtn" data-down="'+s.id+'" title="Move down">▼</button>'+
+      '</span></td>'+
       '<td><input class="desc" data-id="'+s.id+'" value="'+esc(s.desc)+'" placeholder="describe the shot"></td>'+
       '<td><select class="type" data-id="'+s.id+'">'+
         SHOT_TYPES.map(t=>'<option'+(t===s.type?' selected':'')+'>'+t+'</option>').join('')+
@@ -961,8 +993,14 @@ function renderBoard(){
   $('tbl').querySelectorAll('.rowdel').forEach(btn=>{
     btn.addEventListener('click', e=>{ e.stopPropagation(); delShotConfirm(btn.dataset.id); });
   });
+  $('tbl').querySelectorAll('[data-up]').forEach(btn=>{
+    btn.addEventListener('click', e=>{ e.stopPropagation(); moveShot(btn.dataset.up, -1); });
+  });
+  $('tbl').querySelectorAll('[data-down]').forEach(btn=>{
+    btn.addEventListener('click', e=>{ e.stopPropagation(); moveShot(btn.dataset.down, 1); });
+  });
   $('tbl').querySelectorAll('tr[data-id]').forEach(tr=>{
-    tr.addEventListener('click', e=>{ if(e.target.tagName==='INPUT'||e.target.tagName==='SELECT'||e.target.classList.contains('rowdel')) return; selShot = tr.dataset.id; markSel(); });
+    tr.addEventListener('click', e=>{ if(e.target.tagName==='INPUT'||e.target.tagName==='SELECT'||e.target.classList.contains('rowdel')||e.target.classList.contains('ordbtn')) return; selShot = tr.dataset.id; markSel(); });
   });
 
   // board
@@ -977,9 +1015,7 @@ function renderBoard(){
     bhtml += '<div class="box'+(s.id===selShot?' sel':'')+'" data-id="'+s.id+'">'+
       '<div class="bh"><span>'+s.no+'</span><em data-lbl="'+s.id+'">'+esc(s.desc)+'</em></div>'+
       '<div class="frame" style="height:'+frameH(colW-4)+'px">'+
-        (s.bg ? '<img src="'+s.bg+'" alt="">' : '') +
-        (s.draw ? '<img src="'+s.draw+'" alt="">' : '') +
-        ((!s.bg && !s.draw) ? '<div class="ph">tap to draw</div>' : '') +
+        (s.thumb ? '<img src="'+s.thumb+'" alt="">' : '<div class="ph">tap to draw</div>') +
       '</div></div>';
   });
   $('board').innerHTML = bhtml;
@@ -1359,9 +1395,22 @@ function renderAll(){
 /* ---------- drawing editor ---------- */
 let cv, ctx, editId=null, tool='pen', drawing=false;
 let dUndo=[], dRedo=[];
+let stageLayers = []; // {el, layer} for the currently open shot
+let selectedLayerId = null;
+let stageDispW = 0, stageDispH = 0;
+const MAX_LAYERS = 4;
+
+function migrateShotImages(s){
+  if(s.bg && !s.images){
+    const H = Math.round(DRAW_W/P.aspect);
+    s.images = [{ id:uid(), src:s.bg, iw:DRAW_W, ih:H, x:DRAW_W/2, y:H/2, scale:1 }];
+  }
+  if(!s.images) s.images = [];
+}
 
 function openEditor(id){
   const s = P.shots.find(x=>x.id===id); if(!s) return;
+  migrateShotImages(s);
   editId = id; selShot = id;
   const n = numOf(id);
   $('ovTitle').innerHTML = n + ' <em>' + esc(s.desc||'') + '</em>';
@@ -1377,9 +1426,10 @@ function openEditor(id){
   let sw = maxW, sh = sw / P.aspect;
   if(sh > maxH){ sh = maxH; sw = sh * P.aspect; }
   $('stage').style.width = sw+'px'; $('stage').style.height = sh+'px';
+  stageDispW = sw; stageDispH = sh;
 
-  const bg = $('stageBg');
-  if(s.bg){ bg.src = s.bg; bg.style.display='block'; } else { bg.removeAttribute('src'); bg.style.display='none'; }
+  selectedLayerId = null;
+  renderStageLayers(s);
 
   ctx.clearRect(0,0,W,H);
   if(s.draw){
@@ -1392,10 +1442,98 @@ function openEditor(id){
   $('ov').classList.add('open');
 }
 
+function renderStageLayers(s){
+  stageLayers.forEach(({el})=> el.remove());
+  stageLayers = [];
+  (s.images||[]).forEach(layer=>{
+    const im = document.createElement('img');
+    im.className = 'layerimg';
+    im.src = layer.src;
+    im.draggable = false;
+    im.alt = '';
+    $('stage').insertBefore(im, $('cv'));
+    stageLayers.push({ el: im, layer });
+    attachLayerGestures(im, layer);
+    layoutLayer(im, layer);
+  });
+  updateLayerVisualSelection();
+}
+
+function layoutLayer(el, layer){
+  const H_full = Math.round(DRAW_W / P.aspect);
+  const baseSc = Math.min(DRAW_W/layer.iw, H_full/layer.ih);
+  const dw = layer.iw*baseSc*layer.scale;
+  const dh = layer.ih*baseSc*layer.scale;
+  const rx = stageDispW/DRAW_W, ry = stageDispH/H_full;
+  el.style.width = (dw*rx)+'px';
+  el.style.height = (dh*ry)+'px';
+  el.style.left = ((layer.x*rx) - (dw*rx)/2)+'px';
+  el.style.top = ((layer.y*ry) - (dh*ry)/2)+'px';
+}
+
+function selectLayer(id){ selectedLayerId = id; updateLayerVisualSelection(); }
+function updateLayerVisualSelection(){
+  stageLayers.forEach(({el,layer})=> el.classList.toggle('layersel', layer.id===selectedLayerId));
+}
+
+function attachLayerGestures(el, layer){
+  const pts = new Map();
+  let dragStart = null, startDist = 0, startScale = 1;
+
+  el.addEventListener('pointerdown', e=>{
+    if(tool!=='move') return;
+    e.preventDefault(); e.stopPropagation();
+    try{ el.setPointerCapture(e.pointerId); }catch(err){}
+    pts.set(e.pointerId, { x:e.clientX, y:e.clientY });
+    selectLayer(layer.id);
+    if(pts.size===1){
+      dragStart = { cx:e.clientX, cy:e.clientY, lx:layer.x, ly:layer.y };
+    } else if(pts.size===2){
+      const arr = [...pts.values()];
+      startDist = Math.hypot(arr[0].x-arr[1].x, arr[0].y-arr[1].y) || 1;
+      startScale = layer.scale;
+    }
+  });
+  el.addEventListener('pointermove', e=>{
+    if(!pts.has(e.pointerId)) return;
+    e.preventDefault();
+    pts.set(e.pointerId, { x:e.clientX, y:e.clientY });
+    const r = $('stage').getBoundingClientRect();
+    const H_full = Math.round(DRAW_W/P.aspect);
+    const rx = DRAW_W/r.width, ry = H_full/r.height;
+    if(pts.size===1 && dragStart){
+      layer.x = dragStart.lx + (e.clientX-dragStart.cx)*rx;
+      layer.y = dragStart.ly + (e.clientY-dragStart.cy)*ry;
+      layoutLayer(el, layer);
+    } else if(pts.size===2){
+      const arr = [...pts.values()];
+      const dist = Math.hypot(arr[0].x-arr[1].x, arr[0].y-arr[1].y) || 1;
+      layer.scale = Math.max(0.2, Math.min(6, startScale*(dist/startDist)));
+      layoutLayer(el, layer);
+    }
+  });
+  const endPt = e=>{
+    pts.delete(e.pointerId);
+    if(pts.size===1){
+      const remain = [...pts.values()][0];
+      dragStart = { cx:remain.x, cy:remain.y, lx:layer.x, ly:layer.y };
+    } else if(pts.size===0){
+      dragStart = null;
+    }
+  };
+  el.addEventListener('pointerup', endPt);
+  el.addEventListener('pointercancel', endPt);
+}
+
 function setTool(t){
   tool = t;
   $('tPen').classList.toggle('on', t==='pen');
   $('tErase').classList.toggle('on', t==='erase');
+  $('tMove').classList.toggle('on', t==='move');
+  const moveMode = t==='move';
+  $('cv').style.pointerEvents = moveMode ? 'none' : 'auto';
+  stageLayers.forEach(({el})=> el.style.pointerEvents = moveMode ? 'auto' : 'none');
+  if(!moveMode){ selectedLayerId = null; updateLayerVisualSelection(); }
 }
 function cvPos(e){
   const r = cv.getBoundingClientRect();
@@ -1442,28 +1580,36 @@ function restore(url){
 /* image handling */
 function loadImageInto(file){
   if(!file) return;
+  const s = P.shots.find(x=>x.id===editId); if(!s) return;
+  s.images = s.images || [];
+  if(s.images.length >= MAX_LAYERS){ toast('Max '+MAX_LAYERS+' images per box — delete one first'); return; }
   const r = new FileReader();
   r.onload = ()=>{
     const im = new Image();
     im.onload = ()=>{
-      // downscale to frame width to keep files sane
-      const W = DRAW_W, H = Math.round(W/P.aspect);
-      const c = document.createElement('canvas'); c.width=W; c.height=H;
-      const cx = c.getContext('2d');
-      cx.fillStyle='#fff'; cx.fillRect(0,0,W,H);
-      const sc = Math.min(W/im.width, H/im.height);
-      const dw = im.width*sc, dh = im.height*sc;
-      cx.drawImage(im,(W-dw)/2,(H-dh)/2,dw,dh);
-      const url = c.toDataURL('image/jpeg',0.82);
-      const s = P.shots.find(x=>x.id===editId);
-      if(s){ s.bg = url; $('stageBg').src = url; $('stageBg').style.display='block'; }
+      // downscale the source so stored project size stays sane
+      const maxDim = 1200;
+      let iw = im.width, ih = im.height;
+      if(Math.max(iw,ih) > maxDim){
+        const sc = maxDim/Math.max(iw,ih);
+        iw = Math.round(iw*sc); ih = Math.round(ih*sc);
+      }
+      const c = document.createElement('canvas'); c.width=iw; c.height=ih;
+      c.getContext('2d').drawImage(im,0,0,iw,ih);
+      const url = c.toDataURL('image/jpeg',0.85);
+      const H_full = Math.round(DRAW_W/P.aspect);
+      const layer = { id:uid(), src:url, iw, ih, x:DRAW_W/2, y:H_full/2, scale:1 };
+      s.images.push(layer);
+      renderStageLayers(s);
+      selectLayer(layer.id);
+      setTool('move');
     };
     im.src = r.result;
   };
   r.readAsDataURL(file);
 }
 
-/* ---------- flatten (PDF only) ---------- */
+/* ---------- flatten (thumbnail + PDF) ---------- */
 function flatten(s){
   const W = 900, H = Math.round(W/P.aspect);
   const c = document.createElement('canvas'); c.width=W; c.height=H;
@@ -1475,10 +1621,20 @@ function flatten(s){
     im.onload = ()=>r(im); im.onerror = ()=>r(null);
     im.src = src;
   });
-  // bg first, drawing on top — flattened for print only
-  return Promise.all([load(s.bg), load(s.draw)]).then(([bg,dr])=>{
-    if(bg) x.drawImage(bg,0,0,W,H);
-    if(dr) x.drawImage(dr,0,0,W,H);
+  const ratio = W/DRAW_W;
+  const H_full = Math.round(DRAW_W/P.aspect);
+  const imgLoads = (s.images||[]).map(layer=> load(layer.src).then(im=>({im,layer})));
+  return Promise.all([...imgLoads, load(s.draw)]).then(results=>{
+    const drawIm = results.pop();
+    results.forEach(({im,layer})=>{
+      if(!im) return;
+      const baseSc = Math.min(DRAW_W/layer.iw, H_full/layer.ih);
+      const dw = layer.iw*baseSc*layer.scale*ratio;
+      const dh = layer.ih*baseSc*layer.scale*ratio;
+      const cx_ = layer.x*ratio, cy_ = layer.y*ratio;
+      x.drawImage(im, cx_-dw/2, cy_-dh/2, dw, dh);
+    });
+    if(drawIm) x.drawImage(drawIm,0,0,W,H);
     return c.toDataURL('image/jpeg',0.85);
   });
 }
@@ -1852,6 +2008,7 @@ async function openProject(file){
     P = o; P.aspect = P.aspect || 1.778; P.meta = P.meta || {draft:0};
     P.cast = P.cast || []; P.crew = P.crew || seedCrew(); P.breakdown = P.breakdown || {};
     P.equipment = P.equipment || seedEquipment(); P.props = P.props || [];
+    (P.shots||[]).forEach(migrateShotImages);
     syncCastFromScript();
     undoStack=[]; selShot=null;
     $('pasteBlock').style.display='none'; $('scriptBlock').style.display='block';
@@ -2008,15 +2165,25 @@ $('tImg').addEventListener('click', ()=> $('fileImg').click());
 $('tCam').addEventListener('click', ()=> $('fileCam').click());
 $('fileImg').addEventListener('change', e=>{ loadImageInto(e.target.files[0]); e.target.value=''; });
 $('fileCam').addEventListener('change', e=>{ loadImageInto(e.target.files[0]); e.target.value=''; });
+$('tMove').addEventListener('click', ()=> setTool('move'));
 $('tClrImg').addEventListener('click', ()=>{
   const s=P.shots.find(x=>x.id===editId); if(!s) return;
-  s.bg=null; $('stageBg').removeAttribute('src'); $('stageBg').style.display='none';
+  if(!selectedLayerId){ toast('Select an image first (tap Move, then tap the image)'); return; }
+  s.images = (s.images||[]).filter(l=>l.id!==selectedLayerId);
+  selectedLayerId = null;
+  renderStageLayers(s);
+});
+$('stage').addEventListener('pointerdown', e=>{
+  if(tool==='move' && e.target===$('stage')) selectLayer(null);
 });
 $('tClrDraw').addEventListener('click', ()=>{
   dUndo.push(cv.toDataURL()); ctx.clearRect(0,0,cv.width,cv.height); commitDraw();
 });
-$('tClose').addEventListener('click', ()=>{
-  commitDraw(); $('ov').classList.remove('open'); renderAll();
+$('tClose').addEventListener('click', async ()=>{
+  commitDraw();
+  const s = P.shots.find(x=>x.id===editId);
+  if(s){ try{ s.thumb = await flatten(s); }catch(err){} }
+  $('ov').classList.remove('open'); renderAll();
 });
 $('cv') && (()=>{
   const c = $('cv');
@@ -2065,6 +2232,7 @@ window.addEventListener('beforeunload', e=>{ if(P && P.shots.length){ e.preventD
       P.cast = P.cast || []; P.crew = P.crew || seedCrew(); P.breakdown = P.breakdown || {};
     P.equipment = P.equipment || seedEquipment(); P.props = P.props || [];
       P.aspect = P.aspect || 1.778; P.meta = P.meta || {draft:0};
+      (P.shots||[]).forEach(migrateShotImages);
       syncCastFromScript();
       undoStack = []; selShot = null;
       $('pasteBlock').style.display='none'; $('scriptBlock').style.display='block';
