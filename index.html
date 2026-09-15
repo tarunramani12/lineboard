@@ -1689,62 +1689,65 @@ async function buildCastCrewPDF(){
   return doc.output('arraybuffer');
 }
 
-async function buildPropsEquipPDF(){
+async function buildPropsPDF(){
   if(!window.jspdf) throw new Error('PDF library not loaded (needs internet on first load)');
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF({ unit:'mm', format:'a4', orientation:'portrait' });
   const PW = 210, PH = 297, M = 12;
 
   pdfPageHeader(doc, M, PW, 'PROPS — FULL LIST');
-  {
-    let y = M+21;
-    const cols = [ {label:'ITEM', x:M+1}, {label:'QTY', x:M+70}, {label:'SCENES', x:M+90}, {label:'COMMENTS', x:M+130} ];
-    const printHead = ()=>{
-      doc.setFont('helvetica','bold'); doc.setFontSize(7);
-      cols.forEach(c=> doc.text(c.label, c.x, y));
-      y += 1.5; doc.setLineWidth(0.3); doc.line(M, y, PW-M, y); y += 4;
-      doc.setFont('helvetica','normal'); doc.setFontSize(8);
-    };
-    printHead();
-    const rows = (P.props||[]);
-    if(!rows.length) doc.text('None added.', M+1, y);
-    rows.forEach(p=>{
-      if(y > PH-M-6){ doc.addPage(); pdfPageHeader(doc, M, PW, 'PROPS — FULL LIST'); y=M+21; printHead(); }
-      doc.text(doc.splitTextToSize(p.item||'', 66)[0]||'', M+1, y);
-      doc.text(String(p.qty||0), M+70, y);
-      doc.text(doc.splitTextToSize((p.scenes||[]).join(', '), 38)[0]||'', M+90, y);
-      doc.text(doc.splitTextToSize(p.comments||'', 55)[0]||'', M+130, y);
-      y += 5;
-    });
-  }
+  let y = M+21;
+  const cols = [ {label:'ITEM', x:M+1}, {label:'QTY', x:M+70}, {label:'SCENES', x:M+90}, {label:'COMMENTS', x:M+130} ];
+  const printHead = ()=>{
+    doc.setFont('helvetica','bold'); doc.setFontSize(7);
+    cols.forEach(c=> doc.text(c.label, c.x, y));
+    y += 1.5; doc.setLineWidth(0.3); doc.line(M, y, PW-M, y); y += 4;
+    doc.setFont('helvetica','normal'); doc.setFontSize(8);
+  };
+  printHead();
+  const rows = (P.props||[]);
+  if(!rows.length) doc.text('None added.', M+1, y);
+  rows.forEach(p=>{
+    if(y > PH-M-6){ doc.addPage(); pdfPageHeader(doc, M, PW, 'PROPS — FULL LIST'); y=M+21; printHead(); }
+    doc.text(doc.splitTextToSize(p.item||'', 66)[0]||'', M+1, y);
+    doc.text(String(p.qty||0), M+70, y);
+    doc.text(doc.splitTextToSize((p.scenes||[]).join(', '), 38)[0]||'', M+90, y);
+    doc.text(doc.splitTextToSize(p.comments||'', 55)[0]||'', M+130, y);
+    y += 5;
+  });
+  return doc.output('arraybuffer');
+}
 
-  doc.addPage();
+async function buildEquipmentPDF(){
+  if(!window.jspdf) throw new Error('PDF library not loaded (needs internet on first load)');
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ unit:'mm', format:'a4', orientation:'portrait' });
+  const PW = 210, PH = 297, M = 12;
+
   pdfPageHeader(doc, M, PW, 'EQUIPMENT — FULL LIST');
-  {
-    let y = M+21;
-    const cols = [ {label:'CATEGORY', x:M+1}, {label:'MODEL', x:M+40}, {label:'QTY', x:M+110}, {label:'COMMENTS', x:M+128} ];
-    const printHead = ()=>{
-      doc.setFont('helvetica','bold'); doc.setFontSize(7);
-      cols.forEach(c=> doc.text(c.label, c.x, y));
-      y += 1.5; doc.setLineWidth(0.3); doc.line(M, y, PW-M, y); y += 4;
-      doc.setFont('helvetica','normal'); doc.setFontSize(8);
-    };
-    printHead();
-    const allRows = [];
-    (P.equipment||[]).forEach(cat=>{
-      if(!cat.items.length){ allRows.push([cat.name,'(no items)','','']); return; }
-      cat.items.forEach(it=> allRows.push([cat.name, it.model, String(it.qty||0), it.comments]));
-    });
-    if(!allRows.length) doc.text('None added.', M+1, y);
-    allRows.forEach(row=>{
-      if(y > PH-M-6){ doc.addPage(); pdfPageHeader(doc, M, PW, 'EQUIPMENT — FULL LIST'); y=M+21; printHead(); }
-      doc.text(doc.splitTextToSize(row[0]||'', 36)[0]||'', M+1, y);
-      doc.text(doc.splitTextToSize(row[1]||'', 66)[0]||'', M+40, y);
-      doc.text(row[2]||'', M+110, y);
-      doc.text(doc.splitTextToSize(row[3]||'', 55)[0]||'', M+128, y);
-      y += 5;
-    });
-  }
+  let y = M+21;
+  const cols = [ {label:'CATEGORY', x:M+1}, {label:'MODEL', x:M+40}, {label:'QTY', x:M+110}, {label:'COMMENTS', x:M+128} ];
+  const printHead = ()=>{
+    doc.setFont('helvetica','bold'); doc.setFontSize(7);
+    cols.forEach(c=> doc.text(c.label, c.x, y));
+    y += 1.5; doc.setLineWidth(0.3); doc.line(M, y, PW-M, y); y += 4;
+    doc.setFont('helvetica','normal'); doc.setFontSize(8);
+  };
+  printHead();
+  const allRows = [];
+  (P.equipment||[]).forEach(cat=>{
+    if(!cat.items.length){ allRows.push([cat.name,'(no items)','','']); return; }
+    cat.items.forEach(it=> allRows.push([cat.name, it.model, String(it.qty||0), it.comments]));
+  });
+  if(!allRows.length) doc.text('None added.', M+1, y);
+  allRows.forEach(row=>{
+    if(y > PH-M-6){ doc.addPage(); pdfPageHeader(doc, M, PW, 'EQUIPMENT — FULL LIST'); y=M+21; printHead(); }
+    doc.text(doc.splitTextToSize(row[0]||'', 36)[0]||'', M+1, y);
+    doc.text(doc.splitTextToSize(row[1]||'', 66)[0]||'', M+40, y);
+    doc.text(row[2]||'', M+110, y);
+    doc.text(doc.splitTextToSize(row[3]||'', 55)[0]||'', M+128, y);
+    y += 5;
+  });
   return doc.output('arraybuffer');
 }
 
@@ -1820,7 +1823,8 @@ async function saveProject(){
       { fn: buildShotsPDF,      suffix:'-shots-storyboard.pdf' },
       { fn: buildBreakdownPDF,  suffix:'-breakdown.pdf' },
       { fn: buildCastCrewPDF,   suffix:'-cast-crew.pdf' },
-      { fn: buildPropsEquipPDF, suffix:'-props-equipment.pdf' }
+      { fn: buildPropsPDF,      suffix:'-props.pdf' },
+      { fn: buildEquipmentPDF,  suffix:'-equipment.pdf' }
     ];
     const failed = [];
     for(const job of pdfJobs){
