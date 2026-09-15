@@ -216,12 +216,10 @@
     letter-spacing:.06em; padding:5px 8px;
   }
   .shotno{font-weight:800; font-size:11.5px; white-space:nowrap;}
-  .ordbtns{display:inline-flex; flex-direction:column; margin-left:4px; vertical-align:middle;}
-  .ordbtn{
-    border:none; background:transparent; color:var(--mid); font-size:8px; line-height:1;
-    padding:1px 3px; cursor:pointer;
-  }
-  .ordbtn:active{color:var(--ink);}
+  #tbl tr[data-id]{touch-action:pan-y;}
+  #tbl tr.dragging{opacity:.4;}
+  #tbl tr.dragover-top td{box-shadow: inset 0 2px 0 0 var(--red);}
+  #tbl tr.dragover-bot td{box-shadow: inset 0 -2px 0 0 var(--red);}
   td input.desc{
     width:100%; border:none; background:transparent; font-size:12px; padding:3px 2px;
     border-bottom:1px dashed transparent; font-family:inherit;
@@ -711,20 +709,64 @@ function numbered(){
   });
   return result;
 }
-function moveShot(shotId, dir){
-  const list = numbered();
-  const shot = list.find(s=>s.id===shotId); if(!shot) return;
-  const sceneShots = list.filter(s=>s.scene===shot.scene);
-  const idx = sceneShots.findIndex(s=>s.id===shotId);
-  const swapIdx = idx+dir;
-  if(swapIdx<0 || swapIdx>=sceneShots.length) return;
-  snapshot();
-  const arr = sceneShots.slice();
-  const tmp = arr[idx]; arr[idx]=arr[swapIdx]; arr[swapIdx]=tmp;
-  arr.forEach((s,i)=>{
-    const real = P.shots.find(x=>x.id===s.id);
-    if(real) real.order = i;
+let rowDragFired = false;
+let rowDragState = null;
+function wireRowDrag(tr){
+  let timer=null, sx=0, sy=0;
+  const cancelTimer = ()=>{ clearTimeout(timer); timer=null; };
+  tr.addEventListener('pointerdown', e=>{
+    if(e.target.tagName==='INPUT'||e.target.tagName==='SELECT'||e.target.classList.contains('rowdel')) return;
+    sx=e.clientX; sy=e.clientY;
+    timer = setTimeout(()=>{ timer=null; startRowDrag(tr, e); }, 480);
   });
+  tr.addEventListener('pointermove', e=>{
+    if(timer && (Math.abs(e.clientX-sx)>8 || Math.abs(e.clientY-sy)>8)) cancelTimer();
+  });
+  tr.addEventListener('pointerup', cancelTimer);
+  tr.addEventListener('pointercancel', cancelTimer);
+}
+function startRowDrag(tr, e){
+  rowDragFired = true;
+  try{ tr.setPointerCapture(e.pointerId); }catch(err){}
+  tr.classList.add('dragging');
+  rowDragState = { shotId: tr.dataset.id, sceneNo: parseInt(tr.dataset.scene,10), tr, target:null, before:true };
+  window.addEventListener('pointermove', onRowDragMove);
+  window.addEventListener('pointerup', endRowDrag, {once:true});
+  window.addEventListener('pointercancel', endRowDrag, {once:true});
+}
+function onRowDragMove(e){
+  if(!rowDragState) return;
+  e.preventDefault();
+  const rows = [...document.querySelectorAll('#tbl tr[data-id][data-scene="'+rowDragState.sceneNo+'"]')];
+  document.querySelectorAll('#tbl tr.dragover-top,#tbl tr.dragover-bot').forEach(r=>r.classList.remove('dragover-top','dragover-bot'));
+  let target=null, before=true;
+  for(const r of rows){
+    const rect = r.getBoundingClientRect();
+    if(e.clientY < rect.top+rect.height/2){ target=r; before=true; break; }
+    target=r; before=false;
+  }
+  if(target && target.dataset.id!==rowDragState.shotId) target.classList.add(before?'dragover-top':'dragover-bot');
+  rowDragState.target = target; rowDragState.before = before;
+}
+function endRowDrag(){
+  window.removeEventListener('pointermove', onRowDragMove);
+  document.querySelectorAll('#tbl tr.dragging').forEach(r=>r.classList.remove('dragging'));
+  document.querySelectorAll('#tbl tr.dragover-top,#tbl tr.dragover-bot').forEach(r=>r.classList.remove('dragover-top','dragover-bot'));
+  if(rowDragState && rowDragState.target && rowDragState.target.dataset.id!==rowDragState.shotId){
+    commitRowReorder(rowDragState.shotId, rowDragState.sceneNo, rowDragState.target.dataset.id, rowDragState.before);
+  }
+  rowDragState = null;
+}
+function commitRowReorder(shotId, sceneNo, targetId, before){
+  const list = numbered().filter(s=>s.scene===sceneNo);
+  const dragIdx = list.findIndex(s=>s.id===shotId);
+  if(dragIdx<0) return;
+  const [moved] = list.splice(dragIdx,1);
+  let targetIdx = list.findIndex(s=>s.id===targetId);
+  if(targetIdx<0) list.push(moved);
+  else{ if(!before) targetIdx++; list.splice(targetIdx,0,moved); }
+  snapshot();
+  list.forEach((s,i)=>{ const real=P.shots.find(x=>x.id===s.id); if(real) real.order=i; });
   renderAll();
 }
 function numOf(id){ const n = numbered().find(s=>s.id===id); return n ? n.no : '—'; }
@@ -967,11 +1009,8 @@ function renderBoard(){
       lastScene = s.scene;
       html += '<tr class="scenehead"><td colspan="4">SCENE '+s.scene+' — '+esc(sheadShort(s.scene))+'</td></tr>';
     }
-    html += '<tr data-id="'+s.id+'" class="'+(s.id===selShot?'sel':'')+'">'+
-      '<td><span class="shotno">'+s.no+'</span><span class="ordbtns">'+
-        '<button class="ordbtn" data-up="'+s.id+'" title="Move up">▲</button>'+
-        '<button class="ordbtn" data-down="'+s.id+'" title="Move down">▼</button>'+
-      '</span></td>'+
+    html += '<tr data-id="'+s.id+'" data-scene="'+s.scene+'" class="'+(s.id===selShot?'sel':'')+'">'+
+      '<td><span class="shotno">'+s.no+'</span></td>'+
       '<td><input class="desc" data-id="'+s.id+'" value="'+esc(s.desc)+'" placeholder="describe the shot"></td>'+
       '<td><select class="type" data-id="'+s.id+'">'+
         SHOT_TYPES.map(t=>'<option'+(t===s.type?' selected':'')+'>'+t+'</option>').join('')+
@@ -993,14 +1032,13 @@ function renderBoard(){
   $('tbl').querySelectorAll('.rowdel').forEach(btn=>{
     btn.addEventListener('click', e=>{ e.stopPropagation(); delShotConfirm(btn.dataset.id); });
   });
-  $('tbl').querySelectorAll('[data-up]').forEach(btn=>{
-    btn.addEventListener('click', e=>{ e.stopPropagation(); moveShot(btn.dataset.up, -1); });
-  });
-  $('tbl').querySelectorAll('[data-down]').forEach(btn=>{
-    btn.addEventListener('click', e=>{ e.stopPropagation(); moveShot(btn.dataset.down, 1); });
-  });
   $('tbl').querySelectorAll('tr[data-id]').forEach(tr=>{
-    tr.addEventListener('click', e=>{ if(e.target.tagName==='INPUT'||e.target.tagName==='SELECT'||e.target.classList.contains('rowdel')||e.target.classList.contains('ordbtn')) return; selShot = tr.dataset.id; markSel(); });
+    wireRowDrag(tr);
+    tr.addEventListener('click', e=>{
+      if(rowDragFired){ rowDragFired=false; return; }
+      if(e.target.tagName==='INPUT'||e.target.tagName==='SELECT'||e.target.classList.contains('rowdel')) return;
+      selShot = tr.dataset.id; markSel();
+    });
   });
 
   // board
